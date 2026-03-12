@@ -1,0 +1,491 @@
+import {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+  useEffect,
+} from "react";
+import { transpile, type NoteCommand } from "../lib/transpiler.js";
+import { runBrainfuck } from "../lib/interpreter.js";
+import { StepInterpreter } from "../lib/stepInterpreter.js";
+import {
+  type BeatNote,
+  DEFAULT_INSTRUMENT,
+  loadInstrument,
+  playBeatNotes,
+  stopPlayback,
+  getPlaybackBeat,
+  PLAY_MODE,
+  RUN_MODE,
+} from "../lib/player.js";
+import { notesToParsedMidi } from "../lib/midiExport.js";
+import { useComposition } from "./CompositionContext.js";
+import { useTracks } from "./TracksContext.js";
+
+interface ExecutionContextValue {
+  isPlaying: boolean;
+  currentBeat: number;
+  playMode: PLAY_MODE;
+  setPlayMode: (mode: PLAY_MODE) => void;
+  runMode: RUN_MODE;
+  setRunMode: (mode: RUN_MODE) => void;
+  stdin: string;
+  setStdin: (s: string) => void;
+  output: string;
+  error: string | null;
+  hasRun: boolean;
+  liveDisplayedOutput: string;
+  liveInputPending: boolean;
+  // Derived
+  brainfuck: string;
+  noteCommands: NoteCommand[];
+  transpileError: string | null;
+  activeBfCharIndex: number;
+  canResume: boolean;
+  // Ref for the live stdin input field
+  stdinInputRef: React.RefObject<HTMLInputElement | null>;
+  // Actions
+  run: (mode?: PLAY_MODE) => void;
+  stop: () => void;
+  resetPlayhead: () => void;
+  scrub: (beat: number) => void;
+  submitLiveInput: (char: string) => void;
+}
+
+const ExecutionContext = createContext<ExecutionContextValue | null>(null);
+
+export function ExecutionProvider({ children }: { children: React.ReactNode }) {
+  const { scale, bpm, timeSig, rollRootNote } = useComposition();
+  const {
+    rollNotes,
+    editingNotes,
+    allTracksNotes,
+    tracks,
+    trackIndex,
+    editingTrackIndex,
+    parsedMidi,
+  } = useTracks();
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playMode, setPlayMode] = useState<PLAY_MODE>("all");
+  const [currentBeat, setCurrentBeat] = useState(0);
+  const [runMode, setRunMode] = useState<RUN_MODE>("live");
+  const [stdin, setStdin] = useState("");
+  const [output, setOutput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [hasRun, setHasRun] = useState(false);
+  const [liveInputPending, setLiveInputPending] = useState(false);
+  const [liveDisplayedOutput, setLiveDisplayedOutput] = useState("");
+
+  const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const liveInterpreterRef = useRef<StepInterpreter | null>(null);
+  const liveOutputQueueRef = useRef<string[]>([]);
+  const liveOutputConsumedRef = useRef(0);
+  const liveDotCommandsRef = useRef<NoteCommand[]>([]);
+  const liveCommaCommandsRef = useRef<NoteCommand[]>([]);
+  const liveDotIdxRef = useRef(0);
+  const liveCommaIdxRef = useRef(0);
+  const liveInputPendingRef = useRef(false);
+  const stdinInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync refs for use in closures
+  const currentBeatRef = useRef(0);
+  currentBeatRef.current = currentBeat;
+  const hasRunRef = useRef(false);
+  hasRunRef.current = hasRun;
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+  const playModeRef = useRef(playMode);
+  playModeRef.current = playMode;
+
+  const liveMode = runMode === "live";
+
+  // ── Live BF transpilation ─────────────────────────────────────────────────
+  const { brainfuck, noteCommands, transpileError } = useMemo(() => {
+    if (rollNotes.length === 0)
+      return { brainfuck: "", noteCommands: [], transpileError: null };
+    const fakeMidi = notesToParsedMidi(
+      rollNotes,
+      rollRootNote,
+      bpm,
+      timeSig,
+      scale,
+    );
+    const {
+      brainfuck: bf,
+      error: tErr,
+      noteCommands: nc,
+    } = transpile(fakeMidi, 1, scale);
+    return {
+      brainfuck: bf ?? "",
+      noteCommands: nc ?? [],
+      transpileError: tErr ?? null,
+    };
+  }, [rollNotes, rollRootNote, bpm, timeSig, scale]);
+
+  // ── Active BF char index ──────────────────────────────────────────────────
+  const activeBfCharIndex = useMemo(() => {
+    if (!isPlaying || noteCommands.length === 0) return -1;
+    let idx = -1;
+    for (const nc of noteCommands) {
+      if (nc.beatStart <= currentBeat) idx = nc.charIndex;
+      else break;
+    }
+    return idx;
+  }, [isPlaying, currentBeat, noteCommands]);
+
+  const canResume =
+    currentBeat > 0 &&
+    !isPlaying &&
+    !liveInputPending &&
+    (runMode === "notes" || hasRun);
+
+  // ── Reset run state when program notes are edited ─────────────────────────
+  useEffect(() => {
+    if (!hasRunRef.current && !isPlayingRef.current) return;
+    stopPlayback();
+    stopRaf();
+    setIsPlaying(false);
+    setCurrentBeat(0);
+    setOutput("");
+    setLiveDisplayedOutput("");
+    setError(null);
+    setHasRun(false);
+    setLiveInputPending(false);
+    liveInputPendingRef.current = false;
+    liveInterpreterRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollNotes]);
+
+  // ── Reset execution state when a new MIDI file is loaded ──────────────────
+  useEffect(() => {
+    if (!parsedMidi) return;
+    stop();
+    setCurrentBeat(0);
+    setOutput("");
+    setError(null);
+    setHasRun(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedMidi]);
+
+  // ── Auto-focus stdin when live input is needed ────────────────────────────
+  useEffect(() => {
+    if (liveInputPending) stdinInputRef.current?.focus();
+  }, [liveInputPending]);
+
+  // ── rAF loop ──────────────────────────────────────────────────────────────
+  function startRaf() {
+    function tick() {
+      const beat = getPlaybackBeat();
+      setCurrentBeat(beat);
+
+      if (
+        liveMode &&
+        liveInterpreterRef.current &&
+        !liveInputPendingRef.current
+      ) {
+        const dots = liveDotCommandsRef.current;
+        while (
+          liveDotIdxRef.current < dots.length &&
+          dots[liveDotIdxRef.current].beatStart <= beat &&
+          liveOutputConsumedRef.current < liveOutputQueueRef.current.length
+        ) {
+          liveOutputConsumedRef.current++;
+          liveDotIdxRef.current++;
+        }
+        setLiveDisplayedOutput(
+          liveOutputQueueRef.current
+            .slice(0, liveOutputConsumedRef.current)
+            .join(""),
+        );
+
+        const commas = liveCommaCommandsRef.current;
+        if (
+          liveCommaIdxRef.current < commas.length &&
+          commas[liveCommaIdxRef.current].beatStart <= beat
+        ) {
+          stopPlayback();
+          stopRaf();
+          setIsPlaying(false);
+          setLiveInputPending(true);
+          liveInputPendingRef.current = true;
+          return;
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  function stopRaf() {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }
+
+  // ── Playback ──────────────────────────────────────────────────────────────
+  function stop() {
+    stopPlayback();
+    stopRaf();
+    if (playbackTimeoutRef.current !== null) {
+      clearTimeout(playbackTimeoutRef.current);
+      playbackTimeoutRef.current = null;
+    }
+    setIsPlaying(false);
+  }
+
+  function schedulePlaybackEnd(remainingDurationSec: number) {
+    playbackTimeoutRef.current = setTimeout(
+      () => {
+        stopRaf();
+        setIsPlaying(false);
+        setCurrentBeat(0);
+        if (
+          liveMode &&
+          liveOutputQueueRef.current.length > liveOutputConsumedRef.current
+        ) {
+          setLiveDisplayedOutput(liveOutputQueueRef.current.join(""));
+        }
+      },
+      remainingDurationSec * 1000 + 300,
+    );
+  }
+
+  async function handlePlay(
+    mode: PLAY_MODE = playModeRef.current,
+    fromBeat = currentBeatRef.current,
+  ) {
+    const getInstrument = (id: number) =>
+      tracks.find((t) => t.id === id)?.instrument ?? DEFAULT_INSTRUMENT;
+
+    let notesToPlay: BeatNote[];
+    if (mode === "program") {
+      notesToPlay = rollNotes.map((n) => ({
+        ...n,
+        instrument: getInstrument(trackIndex),
+      }));
+    } else if (mode === "current") {
+      notesToPlay = editingNotes.map((n) => ({
+        ...n,
+        instrument: getInstrument(editingTrackIndex),
+      }));
+    } else {
+      notesToPlay = [];
+      for (const [key, notes] of Object.entries(allTracksNotes)) {
+        const id = Number(key);
+        notesToPlay.push(
+          ...notes.map((n) => ({ ...n, instrument: getInstrument(id) })),
+        );
+      }
+    }
+
+    if (notesToPlay.length === 0) return;
+    stop();
+
+    const rootNoteEvent: BeatNote = {
+      noteNumber: rollRootNote,
+      beatStart: 0,
+      durationBeats: 1,
+      velocity: 100,
+      instrument: getInstrument(trackIndex),
+    };
+    const includesProgram =
+      mode !== "current" || editingTrackIndex === trackIndex;
+    const playNotes = includesProgram
+      ? [rootNoteEvent, ...notesToPlay]
+      : notesToPlay;
+
+    const instrumentNames = [
+      ...new Set(playNotes.map((n) => n.instrument ?? DEFAULT_INSTRUMENT)),
+    ];
+    await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
+
+    setIsPlaying(true);
+    startRaf();
+    const { totalDurationSec } = await playBeatNotes(playNotes, bpm, fromBeat);
+    schedulePlaybackEnd(totalDurationSec);
+  }
+
+  function scrub(beat: number) {
+    setCurrentBeat(beat);
+    if (isPlayingRef.current) {
+      handlePlay(playModeRef.current, beat);
+    }
+  }
+
+  // ── Live interpretation helpers ───────────────────────────────────────────
+  function drainUntilInputOrEnd(): "input" | "done" {
+    const liveInterpreter = liveInterpreterRef.current;
+    if (!liveInterpreter) return "done";
+    while (true) {
+      const r = liveInterpreter.next();
+      if (r.type === "output") {
+        liveOutputQueueRef.current.push(r.char);
+      } else {
+        if (r.type === "done" && r.error) setError(r.error);
+        return r.type as "input" | "done";
+      }
+    }
+  }
+
+  function submitLiveInput(char: string) {
+    const ch = char.length > 0 ? char.charCodeAt(0) : 0;
+    setLiveInputPending(false);
+    liveInputPendingRef.current = false;
+    liveCommaIdxRef.current++;
+    liveInterpreterRef.current?.provideInput(ch);
+    drainUntilInputOrEnd();
+    handlePlay(playModeRef.current, currentBeatRef.current);
+  }
+
+  // ── Run ───────────────────────────────────────────────────────────────────
+  const run = useCallback(
+    (mode: PLAY_MODE = playModeRef.current) => {
+      if (rollNotes.length === 0) return;
+
+      const resumeBeat = currentBeatRef.current;
+      if (resumeBeat > 0 && (runMode === "notes" || hasRun)) {
+        handlePlay(mode, resumeBeat);
+        return;
+      }
+
+      setError(null);
+      setOutput("");
+      setHasRun(true);
+
+      if (transpileError) {
+        setError(transpileError);
+        return;
+      }
+
+      if (runMode === "notes") {
+        handlePlay(mode, 0);
+        return;
+      }
+
+      if (!liveMode) {
+        const { output: out, error: iErr } = runBrainfuck(brainfuck, stdin);
+        setOutput(out);
+        if (iErr) setError(iErr);
+        handlePlay(mode, 0);
+        return;
+      }
+
+      setLiveDisplayedOutput("");
+      setLiveInputPending(false);
+      liveInputPendingRef.current = false;
+      liveOutputQueueRef.current = [];
+      liveOutputConsumedRef.current = 0;
+      liveDotIdxRef.current = 0;
+      liveCommaIdxRef.current = 0;
+
+      liveDotCommandsRef.current = noteCommands.filter(
+        (c) => brainfuck[c.charIndex] === ".",
+      );
+      liveCommaCommandsRef.current = noteCommands.filter(
+        (c) => brainfuck[c.charIndex] === ",",
+      );
+
+      const stepInterpreter = new StepInterpreter(brainfuck);
+      if (stepInterpreter.initError) {
+        setError(stepInterpreter.initError);
+        return;
+      }
+      liveInterpreterRef.current = stepInterpreter;
+      drainUntilInputOrEnd();
+      handlePlay(mode, 0);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      rollNotes,
+      stdin,
+      allTracksNotes,
+      tracks,
+      runMode,
+      hasRun,
+      brainfuck,
+      noteCommands,
+      transpileError,
+    ],
+  );
+
+  function resetPlayhead() {
+    setCurrentBeat(0);
+    setOutput("");
+    setLiveDisplayedOutput("");
+    setError(null);
+    setHasRun(false);
+    liveInterpreterRef.current = null;
+  }
+
+  // ── Global keyboard shortcut: space = play/pause ──────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tgt = e.target as HTMLElement | null;
+      if (
+        tgt &&
+        (tgt.tagName === "INPUT" ||
+          tgt.tagName === "TEXTAREA" ||
+          tgt.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.code === "Space" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (isPlayingRef.current) {
+          stop();
+        } else {
+          run();
+        }
+        return;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [run]);
+
+  const value: ExecutionContextValue = {
+    isPlaying,
+    currentBeat,
+    playMode,
+    setPlayMode,
+    runMode,
+    setRunMode,
+    stdin,
+    setStdin,
+    output,
+    error,
+    hasRun,
+    liveDisplayedOutput,
+    liveInputPending,
+    brainfuck,
+    noteCommands,
+    transpileError,
+    activeBfCharIndex,
+    canResume,
+    stdinInputRef,
+    run,
+    stop,
+    resetPlayhead,
+    scrub,
+    submitLiveInput,
+  };
+
+  return (
+    <ExecutionContext.Provider value={value}>
+      {children}
+    </ExecutionContext.Provider>
+  );
+}
+
+export function useExecution() {
+  const ctx = useContext(ExecutionContext);
+  if (!ctx)
+    throw new Error("useExecution must be used within ExecutionProvider");
+  return ctx;
+}
