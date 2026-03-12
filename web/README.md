@@ -1,6 +1,6 @@
 # Bebop is Brainfuck — Web IDE
 
-A browser-based IDE for [Bebop is Brainfuck](https://github.com/faishasj/bebop-brainfuck), an esoteric programming language where MIDI files are programs. Brainfuck commands are encoded as musical intervals within Bebop scales.
+A browser-based IDE for [Bebop is Brainfuck](https://github.com/faishasj/bebop-is-brainfuck), an esoteric programming language where MIDI files are programs. Brainfuck commands are encoded as musical intervals within Bebop scales.
 
 ## Running locally
 

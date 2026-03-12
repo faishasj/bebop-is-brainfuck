@@ -198,7 +198,7 @@ export function IdeToolbar() {
       <div className="ide-titlebar">
         <strong>🎷 Bebop is Brainfuck</strong>
         <a
-          href="https://github.com/faishasj/bebop-brainfuck"
+          href="https://github.com/faishasj/bebop-is-brainfuck"
           target="_blank"
           rel="noreferrer"
         >
