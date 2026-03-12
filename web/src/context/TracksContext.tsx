@@ -6,7 +6,7 @@ import {
   useRef,
   useMemo,
 } from "react";
-import { type MidiData } from "../lib/transpiler.js";
+import { type MidiData, readScaleHint } from "../lib/transpiler.js";
 import { type BeatNote, DEFAULT_INSTRUMENT } from "../lib/player.js";
 import {
   parsedMidiToRollNotes,
@@ -151,9 +151,13 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       })),
     );
 
+    // Marker takes priority over key signature for scale detection.
+    const scaleHint = readScaleHint(parsed);
+    if (scaleHint) setScale(scaleHint);
+
     let foundTempo = false,
       foundTimeSig = false,
-      foundKeySig = false;
+      foundKeySig = scaleHint !== null;
     for (const track of parsed.tracks) {
       for (const event of track) {
         if (

@@ -23,6 +23,7 @@ interface Example {
 }
 
 const EXAMPLES: Example[] = [
+  { label: "Hello, World! (Bebop)", file: "hello_world_bebop.mid" },
   { label: "Hello, World! (in E)", file: "hello_world_in_E.mid" },
 ];
 

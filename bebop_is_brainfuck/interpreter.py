@@ -19,16 +19,27 @@ INSTRUCTION = {
 }
 
 
+def read_scale_hint(midi):
+  """Return the scale encoded in a bebop:SCALE marker, or None if absent."""
+  for track in midi.tracks:
+    for msg in track:
+      if msg.type == 'marker' and msg.text.startswith('bebop:'):
+        name = msg.text[len('bebop:'):]
+        if name in SCALE:
+          return name
+  return None
+
+
 """ Bebop Is Brainfuck interpreter. """
 class B2Interpreter:
-  def __init__(self, filename, track_no=1, scale='MAJOR'):
-    self.scale = scale
+  def __init__(self, filename, track_no=1, scale=None):
+    midi = MidiFile(filename)
+    self.scale = scale or read_scale_hint(midi) or 'MAJOR'
     self.tape = [0] * 300000
     self.data_ptr = 0
     self.instruction_ptr = 0
     self.jump_to = {}
 
-    midi = MidiFile(filename)
     self.track = midi.tracks[track_no]
 
   """ Transpile MIDI track to Brainfuck. """
@@ -130,8 +141,9 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='"Bebop is Brainfuck" Python interpreter.')
   parser.add_argument('filename', nargs=1, type=str)
   parser.add_argument('--track', '-T', action='store', type=int, dest='track_no', default=1)
-  parser.add_argument('--scale', '-S', action='store', type=str, dest='scale', default='MAJOR')
+  parser.add_argument('--scale', '-S', action='store', type=str, dest='scale', default=None,
+                      help='Override scale (MAJOR/MINOR/DOMINANT). Auto-detected from file if omitted.')
   args = parser.parse_args()
 
-  b2i = B2Interpreter(args.filename[0], args.track_no, args.scale.upper())
+  b2i = B2Interpreter(args.filename[0], args.track_no, args.scale.upper() if args.scale else None)
   b2i.evaluate()

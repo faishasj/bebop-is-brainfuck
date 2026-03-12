@@ -1,6 +1,22 @@
 import { parseMidi, type MidiData } from 'midi-file';
 import { SCALE, computeSemitone, type Scale } from './scales.js';
 
+// Scan all tracks for a `bebop:SCALE` marker meta event at any position.
+// Returns the encoded Scale, or null if no hint is present.
+export function readScaleHint(parsed: MidiData): Scale | null {
+  for (const track of parsed.tracks) {
+    for (const event of track) {
+      if (event.type === 'marker') {
+        const text = (event as { text: string }).text;
+        if (text === 'bebop:MAJOR')    return 'MAJOR';
+        if (text === 'bebop:MINOR')    return 'MINOR';
+        if (text === 'bebop:DOMINANT') return 'DOMINANT';
+      }
+    }
+  }
+  return null;
+}
+
 export type { MidiData };
 
 export interface NoteCommand {

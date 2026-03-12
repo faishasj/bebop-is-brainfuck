@@ -286,6 +286,7 @@ export function notesToParsedMidi(
           key: ROOT_TO_KEY[rootNote % 12],
           scale: scale === "MINOR" ? 1 : 0,
         },
+        { deltaTime: 0, type: "marker", text: `bebop:${scale}` },
         { deltaTime: 0, type: "endOfTrack" },
       ],
       // Track 1: note track
@@ -429,6 +430,7 @@ export function exportAllTracks(
         key: ROOT_TO_KEY[rootNote % 12],
         scale: scale === "MINOR" ? 1 : 0,
       },
+      { deltaTime: 0, type: "marker", text: `bebop:${scale}` },
       { deltaTime: 0, type: "endOfTrack" },
     ],
   ];
