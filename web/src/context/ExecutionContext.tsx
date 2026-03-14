@@ -100,6 +100,22 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   isPlayingRef.current = isPlaying;
   const playModeRef = useRef(playMode);
   playModeRef.current = playMode;
+  const rollNotesRef = useRef(rollNotes);
+  rollNotesRef.current = rollNotes;
+  const editingNotesRef = useRef(editingNotes);
+  editingNotesRef.current = editingNotes;
+  const allTracksNotesRef = useRef(allTracksNotes);
+  allTracksNotesRef.current = allTracksNotes;
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const trackIndexRef = useRef(trackIndex);
+  trackIndexRef.current = trackIndex;
+  const editingTrackIndexRef = useRef(editingTrackIndex);
+  editingTrackIndexRef.current = editingTrackIndex;
+  const rollRootNoteRef = useRef(rollRootNote);
+  rollRootNoteRef.current = rollRootNote;
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
 
   const liveMode = runMode === "live";
 
@@ -260,23 +276,26 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     mode: PLAY_MODE = playModeRef.current,
     fromBeat = currentBeatRef.current,
   ) {
+    const currentTracks = tracksRef.current;
+    const currentTrackIndex = trackIndexRef.current;
+    const currentEditingTrackIndex = editingTrackIndexRef.current;
     const getInstrument = (id: number) =>
-      tracks.find((t) => t.id === id)?.instrument ?? DEFAULT_INSTRUMENT;
+      currentTracks.find((t) => t.id === id)?.instrument ?? DEFAULT_INSTRUMENT;
 
     let notesToPlay: BeatNote[];
     if (mode === "program") {
-      notesToPlay = rollNotes.map((n) => ({
+      notesToPlay = rollNotesRef.current.map((n) => ({
         ...n,
-        instrument: getInstrument(trackIndex),
+        instrument: getInstrument(currentTrackIndex),
       }));
     } else if (mode === "current") {
-      notesToPlay = editingNotes.map((n) => ({
+      notesToPlay = editingNotesRef.current.map((n) => ({
         ...n,
-        instrument: getInstrument(editingTrackIndex),
+        instrument: getInstrument(currentEditingTrackIndex),
       }));
     } else {
       notesToPlay = [];
-      for (const [key, notes] of Object.entries(allTracksNotes)) {
+      for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
         const id = Number(key);
         notesToPlay.push(
           ...notes.map((n) => ({ ...n, instrument: getInstrument(id) })),
@@ -288,14 +307,14 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     stop();
 
     const rootNoteEvent: BeatNote = {
-      noteNumber: rollRootNote,
+      noteNumber: rollRootNoteRef.current,
       beatStart: 0,
       durationBeats: 1,
       velocity: 100,
-      instrument: getInstrument(trackIndex),
+      instrument: getInstrument(currentTrackIndex),
     };
     const includesProgram =
-      mode !== "current" || editingTrackIndex === trackIndex;
+      mode !== "current" || currentEditingTrackIndex === currentTrackIndex;
     const playNotes = includesProgram
       ? [rootNoteEvent, ...notesToPlay]
       : notesToPlay;
@@ -307,7 +326,11 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
 
     setIsPlaying(true);
     startRaf();
-    const { totalDurationSec } = await playBeatNotes(playNotes, bpm, fromBeat);
+    const { totalDurationSec } = await playBeatNotes(
+      playNotes,
+      bpmRef.current,
+      fromBeat,
+    );
     schedulePlaybackEnd(totalDurationSec);
   }
 
