@@ -54,6 +54,58 @@ const ROOT_TO_KEY = [0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5];
 
 // Returns the soundfont instrument name for the first programChange event in a track,
 // or DEFAULT_INSTRUMENT if none is found.
+// Suggest the most appropriate grid snap value for a loaded MIDI file.
+// Computes the GCD of all noteOn tick positions and note durations across
+// all tracks, then maps the resulting beat unit to the coarsest standard
+// snap option (1, 1/2, 1/4, 1/8, 1/16) that fits that granularity.
+export function suggestSnapFromMidi(parsed: MidiData): number {
+  const SNAP_OPTIONS = [1, 0.5, 0.25, 0.125, 0.0625];
+  const ticksPerBeat = parsed.header.ticksPerBeat ?? 480;
+
+  function gcd(a: number, b: number): number {
+    while (b > 0) [a, b] = [b, a % b];
+    return a;
+  }
+
+  let g = ticksPerBeat;
+  for (const track of parsed.tracks) {
+    let absoluteTick = 0;
+    const openStart = new Map<number, number>();
+    for (const event of track) {
+      absoluteTick += event.deltaTime;
+      if (
+        event.type === "noteOn" &&
+        (event as { velocity: number }).velocity > 0
+      ) {
+        if (absoluteTick > 0) g = gcd(g, absoluteTick);
+        openStart.set(
+          (event as { noteNumber: number }).noteNumber,
+          absoluteTick,
+        );
+      } else if (
+        event.type === "noteOff" ||
+        (event.type === "noteOn" &&
+          (event as { velocity: number }).velocity === 0)
+      ) {
+        const start = openStart.get(
+          (event as { noteNumber: number }).noteNumber,
+        );
+        if (start !== undefined) {
+          const dur = absoluteTick - start;
+          if (dur > 0) g = gcd(g, dur);
+          openStart.delete((event as { noteNumber: number }).noteNumber);
+        }
+      }
+    }
+  }
+
+  const beatUnit = g / ticksPerBeat;
+  for (const snap of SNAP_OPTIONS) {
+    if (snap <= beatUnit) return snap;
+  }
+  return 0.0625;
+}
+
 export function getTrackInstrument(
   parsedMidi: MidiData,
   trackIndex: number,

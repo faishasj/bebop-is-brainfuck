@@ -9,28 +9,11 @@ import {
   ROW_HEIGHT,
   MAX_NOTE,
   COMMAND_COLORS,
+  COMMAND_TOOLTIPS,
   IGNORED_NOTE_COLOR,
+  GRID_SNAP_OPTIONS,
 } from "../lib/piano.js";
 import { Icon } from "../ui-kit/Icon.js";
-
-const COMMAND_TOOLTIPS: Record<string, string> = {
-  ">": "Move data pointer one cell to the right",
-  "<": "Move data pointer one cell to the left",
-  "+": "Increment the byte at the data pointer (wraps 255 → 0)",
-  "-": "Decrement the byte at the data pointer (wraps 0 → 255)",
-  ".": "Output the byte at the data pointer as an ASCII character",
-  ",": "Read one byte of input into the data pointer cell",
-  "[": "If the current byte is zero, jump forward to the matching ]",
-  "]": "If the current byte is non-zero, jump back to the matching [",
-};
-
-const GRID_SNAP_OPTIONS = [
-  { value: 0.0625, label: "1/16" },
-  { value: 0.125, label: "1/8" },
-  { value: 0.25, label: "1/4" },
-  { value: 0.5, label: "1/2" },
-  { value: 1, label: "1 beat" },
-];
 
 export function PianoRoll() {
   const {

@@ -31,6 +31,14 @@ interface DragMoveState {
   previewOffsetRows: number;
 }
 
+interface DragResizeState {
+  noteId: string;
+  originalNote: NoteWithId;
+  edge: "left" | "right";
+  previewBeatStart: number;
+  previewDuration: number;
+}
+
 interface NoteGridProps {
   editorMode: "add" | "delete";
   gridScrollRef: React.RefObject<HTMLDivElement | null>;
@@ -100,6 +108,24 @@ export function NoteGrid({
   function removeNotes(ids: string[]) {
     const idSet = new Set(ids);
     onNotesChange((notes as NoteWithId[]).filter((n) => !idSet.has(n.id)));
+  }
+
+  function resizeNote(id: string, beatStart: number, durationBeats: number) {
+    const orig = (notes as NoteWithId[]).find((n) => n.id === id);
+    if (!orig) return;
+    const others = (notes as NoteWithId[]).filter((n) => n.id !== id);
+    const overlaps = others.some(
+      (n) =>
+        n.noteNumber === orig.noteNumber &&
+        n.beatStart < beatStart + durationBeats &&
+        n.beatStart + n.durationBeats > beatStart,
+    );
+    if (overlaps) return;
+    onNotesChange(
+      (notes as NoteWithId[]).map((n) =>
+        n.id === id ? { ...n, beatStart, durationBeats } : n,
+      ),
+    );
   }
 
   function updateNotes(
@@ -177,6 +203,8 @@ export function NoteGrid({
   const [dragMoveState, setDragMoveState] = useState<DragMoveState | null>(
     null,
   );
+  const [dragResizeState, setDragResizeState] =
+    useState<DragResizeState | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionRect, setSelectionRect] = useState<{
     x1: number;
@@ -327,6 +355,82 @@ export function NoteGrid({
           : undefined,
       });
     }
+  }
+
+  // ── Resize drag ───────────────────────────────────────────────────────────
+
+  function handleNoteResizeMouseDown(
+    e: React.MouseEvent,
+    note: NoteWithId,
+    edge: "left" | "right",
+  ) {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+
+    isDragging.current = false;
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+
+    const fixedEnd = note.beatStart + note.durationBeats;
+    const fixedStart = note.beatStart;
+    let lastBeatStart = note.beatStart;
+    let lastDuration = note.durationBeats;
+
+    function handleMouseMove(ev: MouseEvent) {
+      if (!pointerDownPos.current) return;
+      const dx = ev.clientX - pointerDownPos.current.x;
+      const dy = ev.clientY - pointerDownPos.current.y;
+      if (
+        !isDragging.current &&
+        Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD
+      ) {
+        isDragging.current = true;
+      }
+      if (isDragging.current) {
+        const el = gridScrollRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const rawBeat = (ev.clientX - rect.left + el.scrollLeft) / BEAT_WIDTH;
+
+        if (edge === "right") {
+          const snappedEnd = snapBeat(rawBeat) + gridSnap;
+          const newDuration = Math.max(gridSnap, snappedEnd - fixedStart);
+          lastBeatStart = fixedStart;
+          lastDuration = newDuration;
+        } else {
+          const minStart = isEditingProgram ? gridSnap : 0;
+          const newStart = Math.max(
+            minStart,
+            Math.min(fixedEnd - gridSnap, snapBeat(rawBeat)),
+          );
+          lastBeatStart = newStart;
+          lastDuration = Math.max(gridSnap, fixedEnd - newStart);
+        }
+
+        setDragResizeState({
+          noteId: note.id,
+          originalNote: note,
+          edge,
+          previewBeatStart: lastBeatStart,
+          previewDuration: lastDuration,
+        });
+      }
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+
+      if (isDragging.current) {
+        resizeNote(note.id, lastBeatStart, lastDuration);
+      }
+
+      isDragging.current = false;
+      pointerDownPos.current = null;
+      setDragResizeState(null);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   }
 
   // ── Creation drag ──────────────────────────────────────────────────────────
@@ -682,7 +786,13 @@ export function NoteGrid({
         overflowX: "auto",
         overflowY: "auto",
         position: "relative",
-        cursor: dragMoveState ? "grabbing" : "crosshair",
+        cursor: dragMoveState
+          ? "grabbing"
+          : dragResizeState
+            ? dragResizeState.edge === "left"
+              ? "w-resize"
+              : "e-resize"
+            : "crosshair",
       }}
     >
       <div
@@ -785,6 +895,49 @@ export function NoteGrid({
             );
           })()}
 
+        {dragResizeState &&
+          (() => {
+            const { originalNote, previewBeatStart, previewDuration } =
+              dragResizeState;
+            const cmd = getNoteCommand(
+              originalNote.noteNumber,
+              rootNote,
+              scale,
+            );
+            const color = isEditingProgram
+              ? cmd
+                ? COMMAND_COLORS[cmd]
+                : "var(--text-muted)"
+              : IGNORED_NOTE_COLOR;
+            return (
+              <div
+                key={`resize-preview-${originalNote.id}`}
+                style={{
+                  position: "absolute",
+                  top: (MAX_NOTE - originalNote.noteNumber) * ROW_HEIGHT,
+                  left: previewBeatStart * BEAT_WIDTH,
+                  width: Math.max(2, previewDuration * BEAT_WIDTH - 2),
+                  height: ROW_HEIGHT - 1,
+                  background: color,
+                  borderRadius: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  paddingLeft: 4,
+                  fontSize: 11,
+                  color: "white",
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  pointerEvents: "none",
+                  zIndex: 5,
+                  opacity: 0.85,
+                  border: "1px dashed rgba(255,255,255,0.5)",
+                }}
+              >
+                {cmd}
+              </div>
+            );
+          })()}
+
         {dragMoveState &&
           dragMoveState.originalNotes.map((origNote) => {
             const previewBeat =
@@ -826,6 +979,7 @@ export function NoteGrid({
 
         {(notes as NoteWithId[]).map((note) => {
           const isBeingMoved = draggingNoteIds.has(note.id);
+          const isBeingResized = dragResizeState?.noteId === note.id;
           const isSelected = selectedIds.has(note.id);
           const command = isEditingProgram
             ? getNoteCommand(note.noteNumber, rootNote, scale)
@@ -836,7 +990,7 @@ export function NoteGrid({
               : IGNORED_NOTE_COLOR
             : IGNORED_NOTE_COLOR;
           let opacity = 1;
-          if (isBeingMoved) opacity = 0.2;
+          if (isBeingMoved || isBeingResized) opacity = 0.2;
           const isActive =
             isPlaying &&
             currentBeat >= note.beatStart &&
@@ -866,7 +1020,7 @@ export function NoteGrid({
                 color: "white",
                 fontWeight: 700,
                 fontFamily: "monospace",
-                cursor: editorMode === "delete" ? "grab" : "pointer",
+                cursor: editorMode === "delete" ? "grab" : "move",
                 zIndex: 3,
                 boxShadow: isActive
                   ? "0 0 0 2px white"
@@ -875,7 +1029,33 @@ export function NoteGrid({
                     : undefined,
               }}
             >
+              {/* Left resize handle */}
+              <div
+                onMouseDown={(e) => handleNoteResizeMouseDown(e, note, "left")}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: Math.min(8, (note.durationBeats * BEAT_WIDTH - 2) / 3),
+                  cursor: "w-resize",
+                  zIndex: 1,
+                }}
+              />
               {command}
+              {/* Right resize handle */}
+              <div
+                onMouseDown={(e) => handleNoteResizeMouseDown(e, note, "right")}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: Math.min(8, (note.durationBeats * BEAT_WIDTH - 2) / 3),
+                  cursor: "e-resize",
+                  zIndex: 1,
+                }}
+              />
             </div>
           );
         })}

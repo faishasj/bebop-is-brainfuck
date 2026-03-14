@@ -13,6 +13,7 @@ import {
   trackToBeatNotes,
   getTrackInstrument,
   exportAllTracks,
+  suggestSnapFromMidi,
 } from "../lib/midiExport.js";
 import { useComposition } from "./CompositionContext.js";
 
@@ -60,6 +61,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setBpm,
     setTimeSig,
     setScale,
+    setGridSnap,
     bpm,
     timeSig,
     scale,
@@ -150,6 +152,9 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
         instrument: getTrackInstrument(parsed, i + startIdx),
       })),
     );
+
+    // Auto-detect grid snap from note granularity.
+    setGridSnap(suggestSnapFromMidi(parsed));
 
     // Marker takes priority over key signature for scale detection.
     const scaleHint = readScaleHint(parsed);
