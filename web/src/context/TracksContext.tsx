@@ -23,6 +23,11 @@ export interface TrackMeta {
   instrument: string;
 }
 
+interface HistoryEntry {
+  label: string;
+  snapshot: Record<number, BeatNote[]>;
+}
+
 interface TracksContextValue {
   parsedMidi: MidiData | null;
   fileName: string;
@@ -41,6 +46,18 @@ interface TracksContextValue {
   isEditingProgram: boolean;
   otherTracksNotes: BeatNote[];
   trackHasNotes: Record<number, boolean>;
+  // History
+  canUndo: boolean;
+  canRedo: boolean;
+  undoLabel: string | null;
+  redoLabel: string | null;
+  undo: () => void;
+  redo: () => void;
+  updateNotesWithHistory: (
+    trackId: number,
+    notes: BeatNote[],
+    label: string,
+  ) => void;
   // Actions
   loadMidi: (parsed: MidiData, name: string) => void;
   addTrack: () => void;
@@ -82,6 +99,18 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     Omit<BeatNote, "id">
   > | null>(null);
 
+  const [past, setPast] = useState<HistoryEntry[]>([]);
+  const [future, setFuture] = useState<HistoryEntry[]>([]);
+
+  // Always-current ref so undo/redo read the latest snapshot even from stale closures
+  const allTracksNotesRef = useRef(allTracksNotes);
+  allTracksNotesRef.current = allTracksNotes;
+
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+  const undoLabel = past.length > 0 ? past[past.length - 1].label : null;
+  const redoLabel = future.length > 0 ? future[future.length - 1].label : null;
+
   const rollNotes = allTracksNotes[trackIndex] ?? [];
   const editingNotes = allTracksNotes[editingTrackIndex] ?? [];
   const isEditingProgram = editingTrackIndex === trackIndex;
@@ -122,6 +151,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setEditingTrackIndex(trackIndex);
 
     if (isFreshLoad) {
+      setPast([]);
+      setFuture([]);
       const startIdx = parsedMidi.tracks.length > 1 ? 1 : 0;
       const newNotes: Record<number, BeatNote[]> = {};
       for (let i = startIdx; i < parsedMidi.tracks.length; i++) {
@@ -208,6 +239,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setTracks((prev) => [...prev, newTrack]);
     setAllTracksNotes((prev) => ({ ...prev, [nextId]: [] }));
     setEditingTrackIndex(nextId);
+    setPast([]);
+    setFuture([]);
   }
 
   function deleteTrack(id: number) {
@@ -225,6 +258,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     } else if (editingTrackIndex === id) {
       setEditingTrackIndex(trackIndex);
     }
+    setPast([]);
+    setFuture([]);
   }
 
   function renameTrack(id: number, name: string) {
@@ -239,6 +274,64 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
 
   function updateNotes(trackId: number, notes: BeatNote[]) {
     setAllTracksNotes((prev) => ({ ...prev, [trackId]: notes }));
+  }
+
+  const HISTORY_LIMIT = 50;
+
+  function updateNotesWithHistory(
+    trackId: number,
+    notes: BeatNote[],
+    label: string,
+  ) {
+    setPast((prev) => {
+      const entry: HistoryEntry = { label, snapshot: allTracksNotes };
+      const next = [...prev, entry];
+      return next.length > HISTORY_LIMIT
+        ? next.slice(next.length - HISTORY_LIMIT)
+        : next;
+    });
+    setFuture([]);
+    setAllTracksNotes((prev) => ({ ...prev, [trackId]: notes }));
+  }
+
+  function undo() {
+    setPast((prev) => {
+      if (prev.length === 0) return prev;
+      const entry = prev[prev.length - 1];
+      const current = allTracksNotesRef.current;
+      setFuture((f) => {
+        const redoEntry: HistoryEntry = {
+          label: entry.label,
+          snapshot: current,
+        };
+        const next = [...f, redoEntry];
+        return next.length > HISTORY_LIMIT
+          ? next.slice(next.length - HISTORY_LIMIT)
+          : next;
+      });
+      setAllTracksNotes(entry.snapshot);
+      return prev.slice(0, prev.length - 1);
+    });
+  }
+
+  function redo() {
+    setFuture((prev) => {
+      if (prev.length === 0) return prev;
+      const entry = prev[prev.length - 1];
+      const current = allTracksNotesRef.current;
+      setPast((p) => {
+        const undoEntry: HistoryEntry = {
+          label: entry.label,
+          snapshot: current,
+        };
+        const next = [...p, undoEntry];
+        return next.length > HISTORY_LIMIT
+          ? next.slice(next.length - HISTORY_LIMIT)
+          : next;
+      });
+      setAllTracksNotes(entry.snapshot);
+      return prev.slice(0, prev.length - 1);
+    });
   }
 
   function exportMidi() {
@@ -264,6 +357,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setEditingTrackIndex(0);
     setAllTracksNotes({ 0: [] });
     setClipboard(null);
+    setPast([]);
+    setFuture([]);
     setScale("MAJOR");
     setBpm(120);
     setTimeSig({ num: 4, den: 4 });
@@ -289,6 +384,13 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     isEditingProgram,
     otherTracksNotes,
     trackHasNotes,
+    canUndo,
+    canRedo,
+    undoLabel,
+    redoLabel,
+    undo,
+    redo,
+    updateNotesWithHistory,
     loadMidi,
     addTrack,
     deleteTrack,

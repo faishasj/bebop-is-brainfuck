@@ -26,6 +26,12 @@ export function PianoRoll() {
     editingNotes: notes,
     isEditingProgram,
     editingTrackIndex,
+    canUndo,
+    canRedo,
+    undoLabel,
+    redoLabel,
+    undo,
+    redo,
   } = useTracks();
 
   const keySidebarScrollRef = useRef<HTMLDivElement | null>(null);
@@ -48,6 +54,19 @@ export function PianoRoll() {
       }
       if (e.key === "a" || e.key === "A") setEditorMode("add");
       if (e.key === "d" || e.key === "D") setEditorMode("delete");
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        undo();
+      }
+      if (mod && e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        redo();
+      }
+      if (e.ctrlKey && !e.shiftKey && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        redo();
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -153,6 +172,31 @@ export function PianoRoll() {
 
         {/* Floating editor toolbar */}
         <div className="pr-toolbar">
+          <button
+            className="pr-toolbar-btn"
+            onClick={undo}
+            disabled={!canUndo}
+            title={canUndo ? `Undo ${undoLabel}` : "Nothing to undo"}
+          >
+            <div className="pr-toolbar-btn-label">
+              <Icon name="undo" />
+              Undo
+            </div>
+            <kbd className="pr-toolbar-kbd">⌘Z</kbd>
+          </button>
+          <button
+            className="pr-toolbar-btn"
+            onClick={redo}
+            disabled={!canRedo}
+            title={canRedo ? `Redo ${redoLabel}` : "Nothing to redo"}
+          >
+            <div className="pr-toolbar-btn-label">
+              <Icon name="redo" />
+              Redo
+            </div>
+            <kbd className="pr-toolbar-kbd">⌘⇧Z</kbd>
+          </button>
+          <div className="pr-toolbar-divider" />
           <button
             className={`pr-toolbar-btn${editorMode === "add" ? " pr-toolbar-btn--active" : ""}`}
             onClick={() => setEditorMode("add")}

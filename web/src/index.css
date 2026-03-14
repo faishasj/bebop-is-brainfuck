@@ -502,6 +502,12 @@ body {
   color: var(--text);
 }
 
+.pr-toolbar-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .pr-toolbar-btn--active {
   background: rgba(34, 211, 238, 0.18);
   color: var(--accent);

@@ -68,7 +68,7 @@ export function NoteGrid({
     editingTrackIndex,
     clipboard,
     setClipboard: onCopyNotes,
-    updateNotes: updateTrackNotes,
+    updateNotesWithHistory,
     tracks,
   } = useTracks();
 
@@ -82,8 +82,8 @@ export function NoteGrid({
     playNote(noteNumber, durationBeats, bpm, instrument);
   }
 
-  function onNotesChange(updated: BeatNote[]) {
-    updateTrackNotes(editingTrackIndex, updated);
+  function onNotesChange(updated: BeatNote[], label: string) {
+    updateNotesWithHistory(editingTrackIndex, updated, label);
   }
 
   // ── Note manipulation ──────────────────────────────────────────────────────
@@ -97,17 +97,23 @@ export function NoteGrid({
     );
     if (overlaps) return;
     const id = crypto.randomUUID();
-    onNotesChange([...notes, { ...partial, id } as NoteWithId]);
+    onNotesChange([...notes, { ...partial, id } as NoteWithId], "add note");
     onPlayNote(partial.noteNumber, partial.durationBeats);
   }
 
   function removeNote(id: string) {
-    onNotesChange((notes as NoteWithId[]).filter((n) => n.id !== id));
+    onNotesChange(
+      (notes as NoteWithId[]).filter((n) => n.id !== id),
+      "delete note",
+    );
   }
 
   function removeNotes(ids: string[]) {
     const idSet = new Set(ids);
-    onNotesChange((notes as NoteWithId[]).filter((n) => !idSet.has(n.id)));
+    onNotesChange(
+      (notes as NoteWithId[]).filter((n) => !idSet.has(n.id)),
+      "delete notes",
+    );
   }
 
   function resizeNote(id: string, beatStart: number, durationBeats: number) {
@@ -125,6 +131,7 @@ export function NoteGrid({
       (notes as NoteWithId[]).map((n) =>
         n.id === id ? { ...n, beatStart, durationBeats } : n,
       ),
+      "resize note",
     );
   }
 
@@ -153,6 +160,7 @@ export function NoteGrid({
         const upd = updateMap.get(n.id);
         return upd ? { ...n, ...upd } : n;
       }),
+      "move notes",
     );
   }
 
@@ -194,7 +202,7 @@ export function NoteGrid({
         ),
     );
     if (toAdd.length === 0) return;
-    onNotesChange([...notes, ...toAdd] as BeatNote[]);
+    onNotesChange([...notes, ...toAdd] as BeatNote[], "paste notes");
   }
 
   // ── Component state ────────────────────────────────────────────────────────

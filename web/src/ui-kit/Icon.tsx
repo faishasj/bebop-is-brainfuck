@@ -1,4 +1,4 @@
-type IconName = "chevron-down" | "pencil" | "trash" | "check";
+type IconName = "chevron-down" | "pencil" | "trash" | "check" | "undo" | "redo";
 
 interface IconProps {
   name: IconName;
@@ -90,6 +90,54 @@ export function Icon({ name }: IconProps) {
           d="M1.5 6L4.5 9.5L10.5 2.5"
           stroke="currentColor"
           strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  } else if (name === "undo") {
+    return (
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M2 4H7.5C9.43 4 11 5.57 11 7.5S9.43 11 7.5 11H3"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M4.5 1.5L2 4L4.5 6.5"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  } else if (name === "redo") {
+    return (
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M10 4H4.5C2.57 4 1 5.57 1 7.5S2.57 11 4.5 11H9"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M7.5 1.5L10 4L7.5 6.5"
+          stroke="currentColor"
+          strokeWidth="1.4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
