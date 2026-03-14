@@ -114,128 +114,110 @@ export function HelpPanel() {
         <table className="ide-overlay-table">
           <thead>
             <tr>
-              <th>Semitones above root</th>
-              <th>Major</th>
-              <th>Minor</th>
-              <th>Dominant</th>
+              <th>Scale</th>
+              <th>0</th>
+              <th>1</th>
+              <th>2</th>
+              <th>3</th>
+              <th>4</th>
+              <th>5</th>
+              <th>6</th>
+              <th>7</th>
+              <th>8</th>
+              <th>9</th>
+              <th>10</th>
+              <th>11</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>0</td>
+              <td>Major</td>
               <td>
                 <code>&gt;</code>
               </td>
-              <td>
-                <code>&gt;</code>
-              </td>
-              <td>
-                <code>&gt;</code>
-              </td>
-            </tr>
-            <tr>
-              <td>1</td>
               <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>2</td>
               <td>
                 <code>&lt;</code>
-              </td>
-              <td>
-                <code>&lt;</code>
-              </td>
-              <td>
-                <code>&lt;</code>
-              </td>
-            </tr>
-            <tr>
-              <td>3</td>
-              <td></td>
-              <td>
-                <code>+</code>
-              </td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>4</td>
-              <td>
-                <code>+</code>
               </td>
               <td></td>
               <td>
                 <code>+</code>
               </td>
-            </tr>
-            <tr>
-              <td>5</td>
               <td>
                 <code>-</code>
               </td>
-              <td>
-                <code>-</code>
-              </td>
-              <td>
-                <code>-</code>
-              </td>
-            </tr>
-            <tr>
-              <td>6</td>
               <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>7</td>
               <td>
                 <code>.</code>
-              </td>
-              <td>
-                <code>.</code>
-              </td>
-              <td>
-                <code>.</code>
-              </td>
-            </tr>
-            <tr>
-              <td>8</td>
-              <td>
-                <code>,</code>
-              </td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>9</td>
-              <td>
-                <code>[</code>
               </td>
               <td>
                 <code>,</code>
               </td>
               <td>
-                <code>,</code>
+                <code>[</code>
               </td>
-            </tr>
-            <tr>
-              <td>10</td>
               <td></td>
-              <td>
-                <code>[</code>
-              </td>
-              <td>
-                <code>[</code>
-              </td>
-            </tr>
-            <tr>
-              <td>11</td>
               <td>
                 <code>]</code>
               </td>
+            </tr>
+            <tr>
+              <td>Minor</td>
+              <td>
+                <code>&gt;</code>
+              </td>
+              <td></td>
+              <td>
+                <code>&lt;</code>
+              </td>
+              <td>
+                <code>+</code>
+              </td>
+              <td></td>
+              <td>
+                <code>-</code>
+              </td>
+              <td></td>
+              <td>
+                <code>.</code>
+              </td>
+              <td></td>
+              <td>
+                <code>,</code>
+              </td>
+              <td>
+                <code>[</code>
+              </td>
               <td>
                 <code>]</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Dominant</td>
+              <td>
+                <code>&gt;</code>
+              </td>
+              <td></td>
+              <td>
+                <code>&lt;</code>
+              </td>
+              <td></td>
+              <td>
+                <code>+</code>
+              </td>
+              <td>
+                <code>-</code>
+              </td>
+              <td></td>
+              <td>
+                <code>.</code>
+              </td>
+              <td></td>
+              <td>
+                <code>,</code>
+              </td>
+              <td>
+                <code>[</code>
               </td>
               <td>
                 <code>]</code>
