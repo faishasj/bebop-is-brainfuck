@@ -411,19 +411,22 @@ export function HelpPanel() {
             </p>
 
             <h3 id="help-limitations">Known limitations</h3>
+            <p className="ide-overlay-muted">
+              These are limitations of the IDE and transpilation process, not of
+              the underlying B2 language itself. They may be lifted in future
+              updates.
+            </p>
             <ul>
               <li>
                 <strong>Note velocity</strong> (attack/volume) is fixed and
                 cannot be edited per-note in the piano roll.
               </li>
               <li>
-                <strong>Zero-velocity notes</strong> (which the MIDI standard
-                treats as note-offs) are skipped during transpilation.
+                One <strong>instrument</strong> per track.
               </li>
               <li>
-                Exported MIDI files include a{" "}
-                <strong>synthetic root-note beat</strong> at tick 0 so the file
-                can be loaded back in and re-transpiled correctly.
+                <strong>Zero-velocity notes</strong> (which the MIDI standard
+                treats as note-offs) are skipped during transpilation.
               </li>
             </ul>
           </section>

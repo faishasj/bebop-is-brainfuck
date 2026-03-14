@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { CompositionProvider } from "../context/CompositionContext.js";
-import { TracksProvider } from "../context/TracksContext.js";
+import { TracksProvider, useTracks } from "../context/TracksContext.js";
 import {
   ExecutionProvider,
   useExecution,
 } from "../context/ExecutionContext.js";
+import { fetchMidi } from "../lib/transpiler.js";
 import { IdeToolbar } from "./IdeToolbar.js";
 import { BrainfuckDisplay } from "./BrainfuckDisplay.js";
 import { OutputDisplay } from "./OutputDisplay.js";
@@ -115,11 +116,40 @@ function AppLayout() {
   );
 }
 
+const EXAMPLES = [
+  { label: "Hello, World! (Bebop)", file: "hello_world_bebop.mid" },
+  { label: "Hello, World! (in E)", file: "hello_world_in_E.mid" },
+];
+
+function SampleLoader() {
+  const { loadMidi } = useTracks();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sampleParam = params.get("sample");
+    if (!sampleParam) return;
+
+    const match = EXAMPLES.find(
+      (e) =>
+        e.file === sampleParam || e.file.replace(/\.mid$/, "") === sampleParam,
+    );
+    if (!match) return;
+
+    history.replaceState(null, "", window.location.pathname);
+    fetchMidi(`examples/${match.file}`)
+      .then((parsed) => loadMidi(parsed, match.label))
+      .catch(console.error);
+  }, []);
+
+  return null;
+}
+
 export function App() {
   return (
     <CompositionProvider>
       <TracksProvider>
         <ExecutionProvider>
+          <SampleLoader />
           <AppLayout />
         </ExecutionProvider>
       </TracksProvider>
