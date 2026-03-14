@@ -1075,6 +1075,106 @@ code {
   font-size: 0.83rem;
 }
 
+/* ── Table of contents ── */
+.ide-overlay-body {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 0 2.5rem;
+  align-items: start;
+}
+
+.ide-overlay-toc-sidebar {
+  position: sticky;
+  top: 2rem;
+}
+
+.ide-overlay-main {
+  min-width: 0;
+}
+
+.toc {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.1rem 0.9rem;
+  margin-bottom: 0;
+  display: block;
+  width: 100%;
+}
+
+.toc-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 0.6rem;
+}
+
+.toc-list,
+.toc-sublist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc-sublist {
+  padding-left: 1rem;
+  margin-top: 0.15rem;
+  margin-bottom: 0.2rem;
+}
+
+.toc-list > li {
+  margin-bottom: 0.25rem;
+}
+
+.toc-sublist > li {
+  margin-bottom: 0.15rem;
+}
+
+.toc-link {
+  text-decoration: none;
+  display: inline-flex;
+  gap: 0.3em;
+  transition: color 0.15s;
+}
+
+.toc-link-section {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.toc-link-item {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.toc-link:hover {
+  color: var(--accent);
+}
+
+.toc-index {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  min-width: 1.8em;
+  flex-shrink: 0;
+}
+
+@media (max-width: 620px) {
+  .ide-overlay-body {
+    grid-template-columns: 1fr;
+  }
+
+  .ide-overlay-toc-sidebar {
+    position: static;
+  }
+
+  .toc {
+    margin-bottom: 1.5rem;
+  }
+}
+
 /* ── Piano roll context menu ── */
 .pr-context-menu {
   position: fixed;
