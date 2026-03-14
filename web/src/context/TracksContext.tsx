@@ -26,6 +26,8 @@ export interface TrackMeta {
 interface HistoryEntry {
   label: string;
   snapshot: Record<number, BeatNote[]>;
+  tracks: TrackMeta[];
+  editingTrackIndex: number;
 }
 
 interface TracksContextValue {
@@ -99,17 +101,29 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     Omit<BeatNote, "id">
   > | null>(null);
 
-  const [past, setPast] = useState<HistoryEntry[]>([]);
-  const [future, setFuture] = useState<HistoryEntry[]>([]);
+  // History stacks stored in refs so mutations are synchronous — no nested setState races
+  const pastRef = useRef<HistoryEntry[]>([]);
+  const futureRef = useRef<HistoryEntry[]>([]);
+  const [, forceHistoryUpdate] = useState(0);
 
-  // Always-current ref so undo/redo read the latest snapshot even from stale closures
+  // Always-current refs so undo/redo read the latest state even from stale closures
   const allTracksNotesRef = useRef(allTracksNotes);
   allTracksNotesRef.current = allTracksNotes;
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const editingTrackIndexRef = useRef(editingTrackIndex);
+  editingTrackIndexRef.current = editingTrackIndex;
 
-  const canUndo = past.length > 0;
-  const canRedo = future.length > 0;
-  const undoLabel = past.length > 0 ? past[past.length - 1].label : null;
-  const redoLabel = future.length > 0 ? future[future.length - 1].label : null;
+  const canUndo = pastRef.current.length > 0;
+  const canRedo = futureRef.current.length > 0;
+  const undoLabel =
+    pastRef.current.length > 0
+      ? pastRef.current[pastRef.current.length - 1].label
+      : null;
+  const redoLabel =
+    futureRef.current.length > 0
+      ? futureRef.current[futureRef.current.length - 1].label
+      : null;
 
   const rollNotes = allTracksNotes[trackIndex] ?? [];
   const editingNotes = allTracksNotes[editingTrackIndex] ?? [];
@@ -151,8 +165,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setEditingTrackIndex(trackIndex);
 
     if (isFreshLoad) {
-      setPast([]);
-      setFuture([]);
+      pastRef.current = [];
+      futureRef.current = [];
       const startIdx = parsedMidi.tracks.length > 1 ? 1 : 0;
       const newNotes: Record<number, BeatNote[]> = {};
       for (let i = startIdx; i < parsedMidi.tracks.length; i++) {
@@ -236,15 +250,48 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       name: `Track ${nextId}`,
       instrument: DEFAULT_INSTRUMENT,
     };
+    const nextPast = [
+      ...pastRef.current,
+      {
+        label: "add track",
+        snapshot: allTracksNotesRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    pastRef.current =
+      nextPast.length > HISTORY_LIMIT
+        ? nextPast.slice(-HISTORY_LIMIT)
+        : nextPast;
+    futureRef.current = [];
     setTracks((prev) => [...prev, newTrack]);
     setAllTracksNotes((prev) => ({ ...prev, [nextId]: [] }));
     setEditingTrackIndex(nextId);
-    setPast([]);
-    setFuture([]);
+    forceHistoryUpdate((v) => v + 1);
   }
 
   function deleteTrack(id: number) {
     if (tracks.length <= 1) return;
+    const fallback =
+      trackIndex === id
+        ? tracks.find((t) => t.id !== id)!.id
+        : editingTrackIndex === id
+          ? trackIndex
+          : editingTrackIndex;
+    const nextPast = [
+      ...pastRef.current,
+      {
+        label: "delete track",
+        snapshot: allTracksNotesRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    pastRef.current =
+      nextPast.length > HISTORY_LIMIT
+        ? nextPast.slice(-HISTORY_LIMIT)
+        : nextPast;
+    futureRef.current = [];
     setTracks((prev) => prev.filter((t) => t.id !== id));
     setAllTracksNotes((prev) => {
       const next = { ...prev };
@@ -252,14 +299,12 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
     if (trackIndex === id) {
-      const fallback = tracks.find((t) => t.id !== id)!.id;
       setTrackIndex(fallback);
       setEditingTrackIndex(fallback);
     } else if (editingTrackIndex === id) {
       setEditingTrackIndex(trackIndex);
     }
-    setPast([]);
-    setFuture([]);
+    forceHistoryUpdate((v) => v + 1);
   }
 
   function renameTrack(id: number, name: string) {
@@ -283,55 +328,62 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     notes: BeatNote[],
     label: string,
   ) {
-    setPast((prev) => {
-      const entry: HistoryEntry = { label, snapshot: allTracksNotes };
-      const next = [...prev, entry];
-      return next.length > HISTORY_LIMIT
-        ? next.slice(next.length - HISTORY_LIMIT)
-        : next;
-    });
-    setFuture([]);
+    const next = [
+      ...pastRef.current,
+      {
+        label,
+        snapshot: allTracksNotesRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    pastRef.current =
+      next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+    futureRef.current = [];
     setAllTracksNotes((prev) => ({ ...prev, [trackId]: notes }));
+    forceHistoryUpdate((v) => v + 1);
   }
 
   function undo() {
-    setPast((prev) => {
-      if (prev.length === 0) return prev;
-      const entry = prev[prev.length - 1];
-      const current = allTracksNotesRef.current;
-      setFuture((f) => {
-        const redoEntry: HistoryEntry = {
-          label: entry.label,
-          snapshot: current,
-        };
-        const next = [...f, redoEntry];
-        return next.length > HISTORY_LIMIT
-          ? next.slice(next.length - HISTORY_LIMIT)
-          : next;
-      });
-      setAllTracksNotes(entry.snapshot);
-      return prev.slice(0, prev.length - 1);
-    });
+    if (pastRef.current.length === 0) return;
+    const entry = pastRef.current[pastRef.current.length - 1];
+    const next = [
+      ...futureRef.current,
+      {
+        label: entry.label,
+        snapshot: allTracksNotesRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    futureRef.current =
+      next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+    pastRef.current = pastRef.current.slice(0, -1);
+    setAllTracksNotes(entry.snapshot);
+    setTracks(entry.tracks);
+    setEditingTrackIndex(entry.editingTrackIndex);
+    forceHistoryUpdate((v) => v + 1);
   }
 
   function redo() {
-    setFuture((prev) => {
-      if (prev.length === 0) return prev;
-      const entry = prev[prev.length - 1];
-      const current = allTracksNotesRef.current;
-      setPast((p) => {
-        const undoEntry: HistoryEntry = {
-          label: entry.label,
-          snapshot: current,
-        };
-        const next = [...p, undoEntry];
-        return next.length > HISTORY_LIMIT
-          ? next.slice(next.length - HISTORY_LIMIT)
-          : next;
-      });
-      setAllTracksNotes(entry.snapshot);
-      return prev.slice(0, prev.length - 1);
-    });
+    if (futureRef.current.length === 0) return;
+    const entry = futureRef.current[futureRef.current.length - 1];
+    const next = [
+      ...pastRef.current,
+      {
+        label: entry.label,
+        snapshot: allTracksNotesRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    pastRef.current =
+      next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+    futureRef.current = futureRef.current.slice(0, -1);
+    setAllTracksNotes(entry.snapshot);
+    setTracks(entry.tracks);
+    setEditingTrackIndex(entry.editingTrackIndex);
+    forceHistoryUpdate((v) => v + 1);
   }
 
   function exportMidi() {
@@ -357,8 +409,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setEditingTrackIndex(0);
     setAllTracksNotes({ 0: [] });
     setClipboard(null);
-    setPast([]);
-    setFuture([]);
+    pastRef.current = [];
+    futureRef.current = [];
     setScale("MAJOR");
     setBpm(120);
     setTimeSig({ num: 4, den: 4 });
