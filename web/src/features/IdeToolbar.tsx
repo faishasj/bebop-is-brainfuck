@@ -73,6 +73,7 @@ export function IdeToolbar() {
     setInstrument,
     updateNotes,
     exportMidi: onExport,
+    resetComposition: onResetComposition,
   } = useTracks();
 
   const {
@@ -126,6 +127,7 @@ export function IdeToolbar() {
   const [runModeOpen, setRunModeOpen] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<TrackMeta | null>(null);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const MODE_LABELS: Record<PLAY_MODE, string> = {
     all: "All",
@@ -416,6 +418,13 @@ export function IdeToolbar() {
             >
               ↓ Export .mid
             </button>
+            <div className="ide-ribbon-sep" />
+            <button
+              className="ide-ribbon-btn ide-ribbon-btn--danger"
+              onClick={() => setResetDialogOpen(true)}
+            >
+              ↺ Reset composition
+            </button>
           </>
         )}
 
@@ -566,6 +575,20 @@ export function IdeToolbar() {
             setClearDialogOpen(false);
           }}
           onCancel={() => setClearDialogOpen(false)}
+        />
+      )}
+      {resetDialogOpen && (
+        <ConfirmDialog
+          title="Reset Composition"
+          message="This will clear all tracks, notes, and reset all settings to their defaults. This cannot be undone. Continue?"
+          confirmLabel="Reset"
+          onConfirm={() => {
+            onStop();
+            onResetPlayhead();
+            onResetComposition();
+            setResetDialogOpen(false);
+          }}
+          onCancel={() => setResetDialogOpen(false)}
         />
       )}
 

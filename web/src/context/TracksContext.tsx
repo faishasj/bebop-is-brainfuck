@@ -49,6 +49,7 @@ interface TracksContextValue {
   setInstrument: (id: number, instrument: string) => void;
   updateNotes: (trackId: number, notes: BeatNote[]) => void;
   exportMidi: () => void;
+  resetComposition: () => void;
 }
 
 const TracksContext = createContext<TracksContextValue | null>(null);
@@ -253,6 +254,24 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  function resetComposition() {
+    setParsedMidi(null);
+    setFileName("");
+    setTracks([
+      { id: 0, name: "Program track", instrument: DEFAULT_INSTRUMENT },
+    ]);
+    setTrackIndex(0);
+    setEditingTrackIndex(0);
+    setAllTracksNotes({ 0: [] });
+    setClipboard(null);
+    setScale("MAJOR");
+    setBpm(120);
+    setTimeSig({ num: 4, den: 4 });
+    setRollRootNote(60);
+    setTotalBeats(16);
+    setGridSnap(0.5);
+  }
+
   const value: TracksContextValue = {
     parsedMidi,
     fileName,
@@ -277,6 +296,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setInstrument,
     updateNotes,
     exportMidi,
+    resetComposition,
   };
 
   return (
