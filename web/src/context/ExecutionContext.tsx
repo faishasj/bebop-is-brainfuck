@@ -24,6 +24,14 @@ import { notesToParsedMidi } from "../lib/midiExport.js";
 import { useComposition } from "./CompositionContext.js";
 import { useTracks } from "./TracksContext.js";
 
+const SNAPSHOT_WINDOW = 60;
+
+export interface TapeSnapshot {
+  dp: number;
+  windowStart: number;
+  cells: Uint8Array;
+}
+
 interface ExecutionContextValue {
   isPlaying: boolean;
   currentBeat: number;
@@ -38,6 +46,7 @@ interface ExecutionContextValue {
   hasRun: boolean;
   liveDisplayedOutput: string;
   liveInputPending: boolean;
+  liveTapeState: TapeSnapshot | null;
   // Derived
   brainfuck: string;
   noteCommands: NoteCommand[];
@@ -89,6 +98,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   const liveDotIdxRef = useRef(0);
   const liveCommaIdxRef = useRef(0);
   const liveInputPendingRef = useRef(false);
+  const liveTapeSnapshotsRef = useRef<TapeSnapshot[]>([]);
+  const [liveTapeState, setLiveTapeState] = useState<TapeSnapshot | null>(null);
   const stdinInputRef = useRef<HTMLInputElement>(null);
 
   // Sync refs for use in closures
@@ -173,6 +184,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     setLiveInputPending(false);
     liveInputPendingRef.current = false;
     liveInterpreterRef.current = null;
+    liveTapeSnapshotsRef.current = [];
+    setLiveTapeState(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rollNotes]);
 
@@ -217,6 +230,11 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
             .slice(0, liveOutputConsumedRef.current)
             .join(""),
         );
+
+        const snapIdx = liveOutputConsumedRef.current - 1;
+        if (snapIdx >= 0 && snapIdx < liveTapeSnapshotsRef.current.length) {
+          setLiveTapeState(liveTapeSnapshotsRef.current[snapIdx]);
+        }
 
         const commas = liveCommaCommandsRef.current;
         if (
@@ -266,6 +284,10 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
           liveOutputQueueRef.current.length > liveOutputConsumedRef.current
         ) {
           setLiveDisplayedOutput(liveOutputQueueRef.current.join(""));
+          const snaps = liveTapeSnapshotsRef.current;
+          if (snaps.length > 0) {
+            setLiveTapeState(snaps[snaps.length - 1]);
+          }
         }
       },
       remainingDurationSec * 1000 + 300,
@@ -349,6 +371,16 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       const r = liveInterpreter.next();
       if (r.type === "output") {
         liveOutputQueueRef.current.push(r.char);
+        const dp = liveInterpreter.getDP();
+        const tape = liveInterpreter.getTape();
+        const half = SNAPSHOT_WINDOW >> 1;
+        const start = Math.max(0, dp - half);
+        const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
+        liveTapeSnapshotsRef.current.push({
+          dp,
+          windowStart: start,
+          cells: tape.slice(start, end),
+        });
       } else {
         if (r.type === "done" && r.error) setError(r.error);
         return r.type as "input" | "done";
@@ -406,6 +438,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       liveOutputConsumedRef.current = 0;
       liveDotIdxRef.current = 0;
       liveCommaIdxRef.current = 0;
+      liveTapeSnapshotsRef.current = [];
+      setLiveTapeState(null);
 
       liveDotCommandsRef.current = noteCommands.filter(
         (c) => brainfuck[c.charIndex] === ".",
@@ -421,6 +455,18 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       }
       liveInterpreterRef.current = stepInterpreter;
       drainUntilInputOrEnd();
+      if (liveTapeSnapshotsRef.current.length === 0) {
+        const dp = stepInterpreter.getDP();
+        const tape = stepInterpreter.getTape();
+        const half = SNAPSHOT_WINDOW >> 1;
+        const start = Math.max(0, dp - half);
+        const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
+        setLiveTapeState({
+          dp,
+          windowStart: start,
+          cells: tape.slice(start, end),
+        });
+      }
       handlePlay(mode, 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -444,6 +490,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     setHasRun(false);
     liveInterpreterRef.current = null;
+    liveTapeSnapshotsRef.current = [];
+    setLiveTapeState(null);
   }
 
   // ── Global keyboard shortcut: space = play/pause ──────────────────────────
@@ -486,6 +534,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     hasRun,
     liveDisplayedOutput,
     liveInputPending,
+    liveTapeState,
     brainfuck,
     noteCommands,
     transpileError,

@@ -9,6 +9,7 @@ import { fetchMidi } from "../lib/transpiler.js";
 import { IdeToolbar } from "./IdeToolbar.js";
 import { BrainfuckDisplay } from "./BrainfuckDisplay.js";
 import { OutputDisplay } from "./OutputDisplay.js";
+import { TapeVisualization } from "./TapeVisualization.js";
 import { PianoRoll } from "./PianoRoll.js";
 
 function AppLayout() {
@@ -24,11 +25,13 @@ function AppLayout() {
     error,
     hasRun,
     liveDisplayedOutput,
+    liveTapeState,
     runMode,
   } = useExecution();
 
   const [bottomHeight, setBottomHeight] = useState(220);
   const [editorMode, setEditorMode] = useState<"add" | "delete">("add");
+  const showTape = runMode === "live";
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -72,7 +75,10 @@ function AppLayout() {
           className="ide-resize-handle"
           onMouseDown={handleDividerMouseDown}
         />
-        <div className="ide-bottom" style={{ height: bottomHeight }}>
+        <div
+          className={`ide-bottom${showTape ? " ide-bottom--with-tape" : ""}`}
+          style={{ height: bottomHeight }}
+        >
           <div className="ide-stdin-row">
             <label className="ide-stdin-label">
               {liveInputPending ? "Input:" : "Stdin"}
@@ -99,6 +105,7 @@ function AppLayout() {
               readOnly={liveInputPending}
             />
           </div>
+          {showTape && <TapeVisualization snapshot={liveTapeState} />}
           <BrainfuckDisplay
             code={brainfuck}
             activeCharIndex={activeBfCharIndex}
