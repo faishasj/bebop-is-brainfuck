@@ -936,10 +936,10 @@ code {
 }
 
 .ide-overlay-close {
-  position: absolute;
+  position: sticky;
   top: 0;
-  right: 0;
-  background: none;
+  float: right;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-muted);
@@ -947,6 +947,7 @@ code {
   line-height: 1;
   padding: 0.2rem 0.6rem;
   cursor: pointer;
+  z-index: 1;
   transition:
     color 0.15s,
     border-color 0.15s;
