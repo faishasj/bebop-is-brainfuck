@@ -8,6 +8,7 @@ const TOC_SECTIONS = [
       { id: "help-bf-basics", label: "Brainfuck basics" },
       { id: "help-encoding", label: "Encoding programs as MIDI" },
       { id: "help-scales", label: "Bebop scales and command mapping" },
+      { id: "help-scale-metadata", label: "Scale metadata" },
     ],
   },
   {
@@ -266,6 +267,23 @@ export function HelpPanel() {
                 </tr>
               </tbody>
             </table>
+
+            <h3 id="help-scale-metadata">Scale metadata</h3>
+            <p>
+              The scale is stored in the MIDI file as a{" "}
+              <strong>marker meta event</strong> with one of three text values:{" "}
+              <code>bebop:MAJOR</code>, <code>bebop:MINOR</code>, or{" "}
+              <code>bebop:DOMINANT</code>. This helps the IDE auto-detect which
+              scale to default to when opening the file. Since major and
+              dominant scales have identical key signatures, this metadata
+              disambiguates them.
+            </p>
+            <p className="ide-overlay-muted">
+              This metadata is added when you create or save a file through the
+              IDE. If you open a MIDI file without this marker, the IDE will
+              default to major, but you can still choose to compile it with a
+              different scale.
+            </p>
           </section>
 
           {/* ── IDE Controls ─────────────────────────────────────────────────── */}
@@ -275,12 +293,17 @@ export function HelpPanel() {
             <h3 id="help-piano-roll">Piano roll</h3>
             <ul>
               <li>
-                <strong>Click</strong> an empty cell to place a note; click an
-                existing note to remove it.
+                Use the right-side floating toolbar to toggle between{" "}
+                <strong>add</strong> (place notes) and <strong>delete</strong>{" "}
+                (remove notes) modes.
               </li>
               <li>
-                <strong>Drag the right edge</strong> of a note to resize its
+                <strong>Drag either edge</strong> of a note to resize its
                 duration.
+              </li>
+              <li>
+                <strong>Hold Shift and drag</strong> to select multiple notes at
+                once.
               </li>
               <li>
                 <strong>Beat 0</strong> (the leftmost column) is reserved for
@@ -394,18 +417,8 @@ export function HelpPanel() {
                 cannot be edited per-note in the piano roll.
               </li>
               <li>
-                <strong>Time signature</strong> affects only the visual bar grid
-                in the piano roll. It does not influence transpilation or
-                Brainfuck output.
-              </li>
-              <li>
-                Only <strong>one program track</strong> can be designated at a
-                time. The ★ icon marks which track that is; changing it reloads
-                that track into the editor.
-              </li>
-              <li>
-                <strong>Scrubbing</strong> is disabled in Live mode once the
-                interpreter is running, as execution state cannot be rewound.
+                <strong>Zero-velocity notes</strong> (which the MIDI standard
+                treats as note-offs) are skipped during transpilation.
               </li>
               <li>
                 Exported MIDI files include a{" "}
