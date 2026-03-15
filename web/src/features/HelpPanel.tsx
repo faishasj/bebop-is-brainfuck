@@ -24,6 +24,15 @@ const TOC_SECTIONS = [
       { id: "help-limitations", label: "Known limitations" },
     ],
   },
+  {
+    id: "help-debugger",
+    label: "Debugger",
+    items: [
+      { id: "help-breakpoints", label: "Breakpoints" },
+      { id: "help-stepping", label: "Stepping" },
+      { id: "help-debug-tab", label: "Debug tab" },
+    ],
+  },
 ];
 
 export function HelpPanel() {
@@ -429,6 +438,67 @@ export function HelpPanel() {
                 treats as note-offs) are skipped during transpilation.
               </li>
             </ul>
+          </section>
+
+          {/* ── Debugger ─────────────────────────────────────────────────────── */}
+          <section className="ide-overlay-section" id="help-debugger">
+            <h2>Debugger</h2>
+
+            <h3 id="help-breakpoints">Breakpoints</h3>
+            <p>
+              <strong>Right-click</strong> on the timeline ruler to toggle a
+              breakpoint at that position. Breakpoints appear as red markers on
+              the ruler.
+            </p>
+            <ul>
+              <li>
+                When running in <strong>Live</strong> mode, playback will
+                automatically pause when the playhead reaches a breakpoint.
+              </li>
+              <li>
+                The corresponding Brainfuck command is highlighted in the code
+                display, and the tape visualization shows the current state of
+                memory.
+              </li>
+              <li>Right-click an existing breakpoint to remove it.</li>
+            </ul>
+
+            <h3 id="help-stepping">Stepping</h3>
+            <p>
+              When paused at a breakpoint, you can advance execution one program
+              note at a time:
+            </p>
+            <ul>
+              <li>
+                <kbd>F10</kbd> — <strong>Step</strong> to the next program note.
+                The interpreter executes the current command, plays the note,
+                and advances the playhead.
+              </li>
+              <li>
+                <kbd>SPACE</kbd> — <strong>Continue</strong> resumes normal
+                playback from the current position until the next breakpoint or
+                the end of the composition.
+              </li>
+            </ul>
+
+            <h3 id="help-debug-tab">Debug tab</h3>
+            <p>
+              The <strong>Debug</strong> tab in the toolbar ribbon provides
+              dedicated controls for debugging:
+            </p>
+            <ul>
+              <li>
+                <strong>Continue</strong> and <strong>Step</strong> buttons
+                (active only when paused at a breakpoint).
+              </li>
+              <li>
+                <strong>Clear all</strong> removes every breakpoint at once. The
+                current breakpoint count is shown in the group label.
+              </li>
+            </ul>
+            <p className="ide-overlay-muted">
+              The Debug tab opens automatically whenever a breakpoint is hit.
+            </p>
           </section>
         </div>
       </div>

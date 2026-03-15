@@ -42,7 +42,19 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     if (e.clientX - rect.left < KEYS_WIDTH) return;
-    toggleBreakpoint(getRawBeatFromClient(e.clientX));
+    const clickedBeat = getRawBeatFromClient(e.clientX);
+    // Snap to a nearby breakpoint if within tolerance (10px worth of beats)
+    const tolerance = 10 / BEAT_WIDTH;
+    let nearest: number | null = null;
+    let nearestDist = Infinity;
+    for (const bp of breakpoints) {
+      const dist = Math.abs(bp - clickedBeat);
+      if (dist < tolerance && dist < nearestDist) {
+        nearest = bp;
+        nearestDist = dist;
+      }
+    }
+    toggleBreakpoint(nearest !== null ? nearest : clickedBeat);
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
