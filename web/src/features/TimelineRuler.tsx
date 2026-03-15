@@ -46,6 +46,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (e.clientX - rect.left < KEYS_WIDTH) return;
 
@@ -132,16 +133,28 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
               key={`bp-${b}`}
               style={{
                 position: "absolute",
-                left: b * BEAT_WIDTH - 4,
-                top: 2,
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
+                top: 0,
+                bottom: 0,
+                left: b * BEAT_WIDTH,
+                width: 2,
                 background: "#ef4444",
                 pointerEvents: "none",
                 zIndex: 5,
               }}
-            />
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: -4,
+                  width: 0,
+                  height: 0,
+                  borderLeft: "5px solid transparent",
+                  borderRight: "5px solid transparent",
+                  borderTop: "8px solid #ef4444",
+                }}
+              />
+            </div>
           ))}
           <div
             style={{
