@@ -163,9 +163,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
               bottom: 0,
               left: currentBeat * BEAT_WIDTH,
               width: 2,
-              background: isPausedAtBreakpoint
-                ? "#ef4444"
-                : "rgba(255,255,255,0.9)",
+              background: "rgba(255,255,255,0.9)",
               pointerEvents: "none",
               zIndex: 10,
             }}
@@ -179,9 +177,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
                 height: 0,
                 borderLeft: "5px solid transparent",
                 borderRight: "5px solid transparent",
-                borderTop: isPausedAtBreakpoint
-                  ? "8px solid #ef4444"
-                  : "8px solid rgba(255,255,255,0.9)",
+                borderTop: "8px solid rgba(255,255,255,0.9)",
               }}
             />
           </div>
