@@ -170,14 +170,15 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   noteCommandsRef.current = noteCommands;
   // ── Active BF char index ──────────────────────────────────────────────────
   const activeBfCharIndex = useMemo(() => {
-    if (!isPlaying || noteCommands.length === 0) return -1;
+    if ((!isPlaying && !isPausedAtBreakpoint) || noteCommands.length === 0)
+      return -1;
     let idx = -1;
     for (const nc of noteCommands) {
       if (nc.beatStart <= currentBeat) idx = nc.charIndex;
       else break;
     }
     return idx;
-  }, [isPlaying, currentBeat, noteCommands]);
+  }, [isPlaying, isPausedAtBreakpoint, currentBeat, noteCommands]);
 
   const canResume =
     currentBeat > 0 &&
