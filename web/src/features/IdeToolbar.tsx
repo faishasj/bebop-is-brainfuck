@@ -652,6 +652,7 @@ export function IdeToolbar() {
           onConfirm={() => {
             onStop();
             onResetPlayhead();
+            onClearBreakpoints();
             onResetComposition();
             setResetDialogOpen(false);
           }}
