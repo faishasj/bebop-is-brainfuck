@@ -53,6 +53,13 @@ interface ExecutionContextValue {
   transpileError: string | null;
   activeBfCharIndex: number;
   canResume: boolean;
+  // Breakpoints
+  breakpoints: Set<number>;
+  isPausedAtBreakpoint: boolean;
+  toggleBreakpoint: (beat: number) => void;
+  clearBreakpoints: () => void;
+  stepBeat: () => void;
+  continueFromBreakpoint: () => void;
   // Ref for the live stdin input field
   stdinInputRef: React.RefObject<HTMLInputElement | null>;
   // Actions
@@ -87,6 +94,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   const [hasRun, setHasRun] = useState(false);
   const [liveInputPending, setLiveInputPending] = useState(false);
   const [liveDisplayedOutput, setLiveDisplayedOutput] = useState("");
+  const [breakpoints, setBreakpoints] = useState<Set<number>>(new Set());
+  const [isPausedAtBreakpoint, setIsPausedAtBreakpoint] = useState(false);
 
   const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -98,6 +107,11 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   const liveDotIdxRef = useRef(0);
   const liveCommaIdxRef = useRef(0);
   const liveInputPendingRef = useRef(false);
+  const breakpointsRef = useRef<Set<number>>(breakpoints);
+  breakpointsRef.current = breakpoints;
+  const playbackStartBeatRef = useRef<number>(0);
+  const isPausedAtBreakpointRef = useRef(false);
+  const noteCommandsRef = useRef<NoteCommand[]>([]);
   const liveTapeSnapshotsRef = useRef<TapeSnapshot[]>([]);
   const [liveTapeState, setLiveTapeState] = useState<TapeSnapshot | null>(null);
   const stdinInputRef = useRef<HTMLInputElement>(null);
@@ -152,7 +166,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       transpileError: tErr ?? null,
     };
   }, [rollNotes, rollRootNote, bpm, timeSig, scale]);
-
+  // Keep noteCommandsRef in sync
+  noteCommandsRef.current = noteCommands;
   // ── Active BF char index ──────────────────────────────────────────────────
   const activeBfCharIndex = useMemo(() => {
     if (!isPlaying || noteCommands.length === 0) return -1;
@@ -168,6 +183,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     currentBeat > 0 &&
     !isPlaying &&
     !liveInputPending &&
+    !isPausedAtBreakpoint &&
     (runMode === "notes" || hasRun);
 
   // ── Reset run state when program notes are edited ─────────────────────────
@@ -186,6 +202,9 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     liveInterpreterRef.current = null;
     liveTapeSnapshotsRef.current = [];
     setLiveTapeState(null);
+    setIsPausedAtBreakpoint(false);
+    isPausedAtBreakpointRef.current = false;
+    playbackStartBeatRef.current = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rollNotes]);
 
@@ -247,6 +266,24 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
           setLiveInputPending(true);
           liveInputPendingRef.current = true;
           return;
+        }
+      }
+
+      // ── Breakpoint check ──────────────────────────────────────────
+      if (breakpointsRef.current.size > 0) {
+        for (const bp of breakpointsRef.current) {
+          if (beat >= bp && bp > playbackStartBeatRef.current) {
+            stopPlayback();
+            stopRaf();
+            if (playbackTimeoutRef.current !== null) {
+              clearTimeout(playbackTimeoutRef.current);
+              playbackTimeoutRef.current = null;
+            }
+            setIsPlaying(false);
+            setIsPausedAtBreakpoint(true);
+            isPausedAtBreakpointRef.current = true;
+            return;
+          }
         }
       }
 
@@ -346,13 +383,14 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     ];
     await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
 
-    setIsPlaying(true);
-    startRaf();
+    playbackStartBeatRef.current = fromBeat;
     const { totalDurationSec } = await playBeatNotes(
       playNotes,
       bpmRef.current,
       fromBeat,
     );
+    setIsPlaying(true);
+    startRaf();
     schedulePlaybackEnd(totalDurationSec);
   }
 
@@ -360,6 +398,108 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     setCurrentBeat(beat);
     if (isPlayingRef.current) {
       handlePlay(playModeRef.current, beat);
+    }
+  }
+
+  // ── Breakpoint helpers ────────────────────────────────────────────────────
+  function toggleBreakpoint(beat: number) {
+    setBreakpoints((prev) => {
+      const next = new Set(prev);
+      if (next.has(beat)) next.delete(beat);
+      else next.add(beat);
+      return next;
+    });
+  }
+
+  function clearBreakpoints() {
+    setBreakpoints(new Set());
+  }
+
+  async function continueFromBreakpoint() {
+    setIsPausedAtBreakpoint(false);
+    isPausedAtBreakpointRef.current = false;
+    handlePlay(playModeRef.current, currentBeatRef.current);
+  }
+
+  async function stepBeat() {
+    const cur = currentBeatRef.current;
+    const cmds = noteCommandsRef.current;
+    const next = cmds.find((nc) => nc.beatStart > cur);
+    if (!next) {
+      // No more program notes — finish
+      setIsPausedAtBreakpoint(false);
+      isPausedAtBreakpointRef.current = false;
+      setCurrentBeat(0);
+      setIsPlaying(false);
+      return;
+    }
+    const targetBeat = next.beatStart;
+
+    // Move playhead to next program note beat
+    setCurrentBeat(targetBeat);
+
+    // Play notes in the stepped range [cur, targetBeat]
+    const mode = playModeRef.current;
+    const currentTracks = tracksRef.current;
+    const currentTrackIndex = trackIndexRef.current;
+    const currentEditingTrackIndex = editingTrackIndexRef.current;
+    const getInstrument = (id: number) =>
+      currentTracks.find((t) => t.id === id)?.instrument ?? DEFAULT_INSTRUMENT;
+
+    let notesToPlay: BeatNote[];
+    if (mode === "program") {
+      notesToPlay = rollNotesRef.current.map((n) => ({
+        ...n,
+        instrument: getInstrument(currentTrackIndex),
+      }));
+    } else if (mode === "current") {
+      notesToPlay = editingNotesRef.current.map((n) => ({
+        ...n,
+        instrument: getInstrument(currentEditingTrackIndex),
+      }));
+    } else {
+      notesToPlay = [];
+      for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
+        const id = Number(key);
+        notesToPlay.push(
+          ...notes.map((n) => ({ ...n, instrument: getInstrument(id) })),
+        );
+      }
+    }
+
+    // Filter to notes that start within [cur, targetBeat)
+    const stepNotes = notesToPlay.filter(
+      (n) => n.beatStart >= cur && n.beatStart < targetBeat,
+    );
+
+    if (stepNotes.length > 0) {
+      const instrumentNames = [
+        ...new Set(stepNotes.map((n) => n.instrument ?? DEFAULT_INSTRUMENT)),
+      ];
+      await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
+      await playBeatNotes(stepNotes, bpmRef.current, cur);
+    }
+
+    // Update live output/tape up to the new beat
+    if (liveMode && liveInterpreterRef.current) {
+      const dots = liveDotCommandsRef.current;
+      while (
+        liveDotIdxRef.current < dots.length &&
+        dots[liveDotIdxRef.current].beatStart <= targetBeat &&
+        liveOutputConsumedRef.current < liveOutputQueueRef.current.length
+      ) {
+        liveOutputConsumedRef.current++;
+        liveDotIdxRef.current++;
+      }
+      setLiveDisplayedOutput(
+        liveOutputQueueRef.current
+          .slice(0, liveOutputConsumedRef.current)
+          .join(""),
+      );
+      const snapIdx = liveOutputConsumedRef.current - 1;
+      if (snapIdx >= 0 && snapIdx < liveTapeSnapshotsRef.current.length) {
+        setLiveTapeState(liveTapeSnapshotsRef.current[snapIdx]);
+      }
     }
   }
 
@@ -492,6 +632,9 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     liveInterpreterRef.current = null;
     liveTapeSnapshotsRef.current = [];
     setLiveTapeState(null);
+    setIsPausedAtBreakpoint(false);
+    isPausedAtBreakpointRef.current = false;
+    playbackStartBeatRef.current = 0;
   }
 
   // ── Global keyboard shortcut: space = play/pause ──────────────────────────
@@ -508,11 +651,24 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       }
       if (e.code === "Space" && !e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        if (isPlayingRef.current) {
+        if (isPausedAtBreakpointRef.current) {
+          continueFromBreakpoint();
+        } else if (isPlayingRef.current) {
           stop();
         } else {
           run();
         }
+        return;
+      }
+      if (
+        e.code === "F10" &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        isPausedAtBreakpointRef.current
+      ) {
+        e.preventDefault();
+        stepBeat();
         return;
       }
     }
@@ -540,6 +696,12 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     transpileError,
     activeBfCharIndex,
     canResume,
+    breakpoints,
+    isPausedAtBreakpoint,
+    toggleBreakpoint,
+    clearBreakpoints,
+    stepBeat,
+    continueFromBreakpoint,
     stdinInputRef,
     run,
     stop,

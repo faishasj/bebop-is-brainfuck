@@ -9,7 +9,13 @@ interface TimelineRulerProps {
 
 export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
   const { totalBeats, gridSnap, timeSig } = useComposition();
-  const { currentBeat, scrub: onScrub } = useExecution();
+  const {
+    currentBeat,
+    scrub: onScrub,
+    breakpoints,
+    toggleBreakpoint,
+    isPausedAtBreakpoint,
+  } = useExecution();
 
   const beatsPerMeasure = timeSig.num;
 
@@ -22,6 +28,21 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
     const x = clientX - rect.left + el.scrollLeft;
     const raw = x / BEAT_WIDTH;
     return Math.max(0, Math.round(raw / gridSnap) * gridSnap);
+  }
+
+  function getRawBeatFromClient(clientX: number): number {
+    const el = scrollRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left + el.scrollLeft;
+    return Math.max(0, x / BEAT_WIDTH);
+  }
+
+  function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.clientX - rect.left < KEYS_WIDTH) return;
+    toggleBreakpoint(getRawBeatFromClient(e.clientX));
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
@@ -88,6 +109,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
         userSelect: "none",
       }}
       onMouseDown={handleMouseDown}
+      onContextMenu={handleContextMenu}
     >
       <div
         style={{
@@ -104,6 +126,23 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
           style={{ width: totalWidth, height: "100%", position: "relative" }}
         >
           {marks}
+          {/* Breakpoint markers */}
+          {[...breakpoints].map((b) => (
+            <div
+              key={`bp-${b}`}
+              style={{
+                position: "absolute",
+                left: b * BEAT_WIDTH - 4,
+                top: 2,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#ef4444",
+                pointerEvents: "none",
+                zIndex: 5,
+              }}
+            />
+          ))}
           <div
             style={{
               position: "absolute",
@@ -111,7 +150,9 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
               bottom: 0,
               left: currentBeat * BEAT_WIDTH,
               width: 2,
-              background: "rgba(255,255,255,0.9)",
+              background: isPausedAtBreakpoint
+                ? "#ef4444"
+                : "rgba(255,255,255,0.9)",
               pointerEvents: "none",
               zIndex: 10,
             }}
@@ -125,7 +166,9 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
                 height: 0,
                 borderLeft: "5px solid transparent",
                 borderRight: "5px solid transparent",
-                borderTop: "8px solid rgba(255,255,255,0.9)",
+                borderTop: isPausedAtBreakpoint
+                  ? "8px solid #ef4444"
+                  : "8px solid rgba(255,255,255,0.9)",
               }}
             />
           </div>

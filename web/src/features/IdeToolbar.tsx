@@ -86,6 +86,9 @@ export function IdeToolbar() {
     setRunMode: onRunModeChange,
     canResume,
     liveInputPending,
+    isPausedAtBreakpoint,
+    stepBeat: onStepBeat,
+    continueFromBreakpoint: onContinue,
     stop: onStop,
     resetPlayhead: onResetPlayhead,
   } = useExecution();
@@ -295,8 +298,27 @@ export function IdeToolbar() {
               </div>
             )}
           </div>
-          {/* Run / Pause */}
-          {isPlaying ? (
+          {/* Run / Pause / Breakpoint controls */}
+          {isPausedAtBreakpoint ? (
+            <>
+              <button
+                className="play-btn"
+                onClick={onContinue}
+                style={{ width: "13rem" }}
+              >
+                <div>▶ Continue</div>
+                <kbd>SPACE</kbd>
+              </button>
+              <button
+                className="play-btn"
+                onClick={onStepBeat}
+                title="Step to next program note"
+              >
+                <div>⏭ Step</div>
+                <kbd>F10</kbd>
+              </button>
+            </>
+          ) : isPlaying ? (
             <button
               className="play-btn"
               onClick={onStop}
