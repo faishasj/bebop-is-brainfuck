@@ -54,11 +54,12 @@ export function HelpPanel() {
               Bebop is Brainfuck (B2) programs are, essentially, Brainfuck
               programs encoded in music intervals. Brainfuck is a minimalist,
               Turing-complete language that operates on a{" "}
-              <strong>memory tape</strong> with cells being indexed from 0 to
-              unbounded on the right. Each cell contains an 8-bit unsigned
-              integer which is initialised to zero. A{" "}
-              <strong>data pointer</strong> starts at cell 0 and can move left
-              or right. There are exactly eight commands:
+              <strong>memory tape</strong> of cells indexed from 0. The language
+              specification leaves the tape size unbounded to the right, but
+              this implementation (like most) uses a fixed tape of 30,000 cells.
+              Each cell contains an 8-bit unsigned integer which is initialised
+              to zero. A <strong>data pointer</strong> starts at cell 0 and can
+              move left or right. There are exactly eight commands:
             </p>
             <table className="ide-overlay-table">
               <thead>
