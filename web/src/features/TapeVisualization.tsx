@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type TapeSnapshot } from "../context/ExecutionContext.js";
 
-const VISIBLE_CELLS = 30;
+const VISIBLE_CELLS = 32;
 const EMPTY_CELLS = new Uint8Array(VISIBLE_CELLS);
 
 type DisplayFormat = "dec" | "hex" | "ascii";

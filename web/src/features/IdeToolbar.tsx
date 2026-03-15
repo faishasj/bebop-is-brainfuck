@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseMidiBuffer, fetchMidi } from "../lib/transpiler.js";
 import { SCALES } from "../lib/scales.js";
 import { DEFAULT_INSTRUMENT, PLAY_MODE, RUN_MODE } from "../lib/player.js";
@@ -87,8 +87,10 @@ export function IdeToolbar() {
     canResume,
     liveInputPending,
     isPausedAtBreakpoint,
+    breakpoints,
     stepBeat: onStepBeat,
     continueFromBreakpoint: onContinue,
+    clearBreakpoints: onClearBreakpoints,
     stop: onStop,
     resetPlayhead: onResetPlayhead,
   } = useExecution();
@@ -121,7 +123,9 @@ export function IdeToolbar() {
   const onClear = () => updateNotes(editingTrackIndex, []);
   const hasNotes = rollNotes.length > 0;
 
-  const [activeTab, setActiveTab] = useState<"file" | "compose">("file");
+  const [activeTab, setActiveTab] = useState<"file" | "compose" | "debug">(
+    "file",
+  );
   const [overlayTab, setOverlayTab] = useState<"help" | "about" | null>(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -159,6 +163,10 @@ export function IdeToolbar() {
   useClickOutside(sampleMenuRef, () => setSampleOpen(false), sampleOpen);
   useClickOutside(playModeMenuRef, () => setPlayModeOpen(false), playModeOpen);
   useClickOutside(runModeMenuRef, () => setRunModeOpen(false), runModeOpen);
+
+  useEffect(() => {
+    if (isPausedAtBreakpoint) setActiveTab("debug");
+  }, [isPausedAtBreakpoint]);
 
   async function handleFile(file: File) {
     const buffer = await file.arrayBuffer();
@@ -225,6 +233,12 @@ export function IdeToolbar() {
           onClick={() => setActiveTab("compose")}
         >
           Compose
+        </button>
+        <button
+          className={`ide-tab-btn ${activeTab === "debug" ? "active" : ""}`}
+          onClick={() => setActiveTab("debug")}
+        >
+          Debug
         </button>
         <button
           className={`ide-tab-btn ${overlayTab === "help" ? "active" : ""}`}
@@ -298,26 +312,16 @@ export function IdeToolbar() {
               </div>
             )}
           </div>
-          {/* Run / Pause / Breakpoint controls */}
+          {/* Run / Pause controls */}
           {isPausedAtBreakpoint ? (
-            <>
-              <button
-                className="play-btn"
-                onClick={onContinue}
-                style={{ width: "13rem" }}
-              >
-                <div>▶ Continue</div>
-                <kbd>SPACE</kbd>
-              </button>
-              <button
-                className="play-btn"
-                onClick={onStepBeat}
-                title="Step to next program note"
-              >
-                <div>⏭ Step</div>
-                <kbd>F10</kbd>
-              </button>
-            </>
+            <button
+              className="play-btn"
+              onClick={onContinue}
+              style={{ width: "13rem" }}
+            >
+              <div>▶ Continue</div>
+              <kbd>SPACE</kbd>
+            </button>
           ) : isPlaying ? (
             <button
               className="play-btn"
@@ -569,6 +573,47 @@ export function IdeToolbar() {
                 </button>
               </div>
               <div className="ide-ribbon-group__title">Track controls</div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "debug" && (
+          <>
+            <div className="ide-ribbon-group">
+              <div className="ide-ribbon-group__controls">
+                <button
+                  className="ide-ribbon-btn"
+                  onClick={onContinue}
+                  disabled={!isPausedAtBreakpoint}
+                  title="Continue execution (SPACE)"
+                >
+                  ▶ Continue
+                </button>
+                <button
+                  className="ide-ribbon-btn"
+                  onClick={onStepBeat}
+                  disabled={!isPausedAtBreakpoint}
+                  title="Step to next program note (F10)"
+                >
+                  ⏭ Step
+                </button>
+              </div>
+              <div className="ide-ribbon-group__title">Controls</div>
+            </div>
+            <div className="ide-ribbon-group">
+              <div className="ide-ribbon-group__controls">
+                <button
+                  className="ide-ribbon-btn ide-ribbon-btn--danger"
+                  onClick={onClearBreakpoints}
+                  disabled={breakpoints.size === 0}
+                  title="Clear all breakpoints"
+                >
+                  ✕ Clear all
+                </button>
+              </div>
+              <div className="ide-ribbon-group__title">
+                Breakpoints ({breakpoints.size})
+              </div>
             </div>
           </>
         )}
