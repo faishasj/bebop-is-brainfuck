@@ -1,6 +1,7 @@
 import Soundfont, { type Player } from "soundfont-player";
 import { type MidiData } from "./transpiler.js";
 import { NOTE_NAMES } from "./piano.js";
+import { type TrackCCEvents, getLastCCBefore } from "./automationTypes.js";
 
 export type RUN_MODE = "notes" | "live" | "batch";
 
@@ -65,11 +66,14 @@ export interface BeatNote {
 
 // Play a sequence of beat-based notes at the given BPM.
 // startBeat allows playback to begin at an arbitrary position.
+// ccEvents: optional per-track automation — attack (CC73) and release (CC72) are
+// applied to each note's soundfont envelope. Values are scaled to seconds.
 // Returns the remaining duration in seconds from startBeat so the caller can set a completion timer.
 export async function playBeatNotes(
   notes: BeatNote[],
   bpm: number,
   startBeat = 0,
+  ccEvents?: TrackCCEvents,
 ): Promise<{ totalDurationSec: number }> {
   const ac = getAudioContext();
   const secPerBeat = 60 / bpm;
@@ -102,9 +106,16 @@ export async function playBeatNotes(
         if (clippedDurationSec <= 0) continue;
 
         const gain = note.velocity / 127;
+        // Apply attack/release from CC events (CC73/CC72) scaled to seconds.
+        const attackRaw = ccEvents ? getLastCCBefore(ccEvents.attack, note.beatStart) : null;
+        const releaseRaw = ccEvents ? getLastCCBefore(ccEvents.release, note.beatStart) : null;
+        const attackSec = attackRaw !== null ? (attackRaw / 127) * 2 : undefined;
+        const releaseSec = releaseRaw !== null ? (releaseRaw / 127) * 4 : undefined;
         player.play(getMidiNoteName(note.noteNumber), now + clippedStartSec, {
           duration: clippedDurationSec,
           gain,
+          ...(attackSec !== undefined ? { attack: attackSec } : {}),
+          ...(releaseSec !== undefined ? { release: releaseSec } : {}),
         });
 
         const absEndSec =

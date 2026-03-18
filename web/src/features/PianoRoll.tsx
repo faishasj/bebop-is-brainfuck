@@ -5,6 +5,7 @@ import { useTracks } from "../context/TracksContext.js";
 import { TimelineRuler } from "./TimelineRuler.js";
 import { PianoKeysSidebar } from "./PianoKeysSidebar.js";
 import { NoteGrid } from "./NoteGrid.js";
+import { AutomationLanes } from "./AutomationLanes.js";
 import {
   ROW_HEIGHT,
   MAX_NOTE,
@@ -39,6 +40,7 @@ export function PianoRoll() {
   const rulerScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [editorMode, setEditorMode] = useState<"add" | "delete">("add");
+  const [showLanes, setShowLanes] = useState(false);
 
   // Hotkeys: A = add mode, D = delete mode
   useEffect(() => {
@@ -150,17 +152,20 @@ export function PianoRoll() {
       {/* Timeline ruler with playhead scrubbing */}
       <TimelineRuler scrollRef={rulerScrollRef} />
 
-      {/* Grid + floating toolbar wrapper */}
-      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            height: "100%",
-            border: "1px solid var(--border)",
-            borderRadius: "0 0 6px 6px",
-            overflow: "hidden",
-          }}
-        >
+      {/* Grid + automation lanes + floating toolbar wrapper */}
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          border: "1px solid var(--border)",
+          borderRadius: "0 0 6px 6px",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
           <PianoKeysSidebar scrollRef={keySidebarScrollRef} />
           <NoteGrid
             editorMode={editorMode}
@@ -169,6 +174,7 @@ export function PianoRoll() {
             keySidebarScrollRef={keySidebarScrollRef}
           />
         </div>
+        {showLanes && <AutomationLanes scrollRef={gridScrollRef} />}
 
         {/* Floating editor toolbar */}
         <div className="pr-toolbar">
@@ -218,6 +224,17 @@ export function PianoRoll() {
               Delete
             </div>
             <kbd className="pr-toolbar-kbd">D</kbd>
+          </button>
+          <div className="pr-toolbar-divider" />
+          <button
+            className={`pr-toolbar-btn${showLanes ? " pr-toolbar-btn--active" : ""}`}
+            onClick={() => setShowLanes((v) => !v)}
+            title={showLanes ? "Hide automation lanes" : "Show automation lanes"}
+          >
+            <div className="pr-toolbar-btn-label">
+              <Icon name="bars" />
+              Lanes
+            </div>
           </button>
           <div className="pr-toolbar-divider" />
           <label className="pr-toolbar-snap-label">Snap</label>

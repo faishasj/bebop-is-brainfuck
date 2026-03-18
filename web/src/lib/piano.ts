@@ -1,4 +1,5 @@
 import { SCALE, computeSemitone, type Scale } from "./scales.js";
+import { type LaneMeta } from "./automationTypes.js";
 
 export const BEAT_WIDTH = 80; // px per beat
 export const ROW_HEIGHT = 18; // px per semitone
@@ -7,6 +8,16 @@ export const MAX_NOTE = 96; // C7  (72 rows total)
 export const KEYS_WIDTH = 64; // px for piano key sidebar
 export const DRAG_THRESHOLD = 4; // px movement before drag activates
 export const IGNORED_NOTE_COLOR = "rgba(148,163,184,0.8)";
+export const LANE_HEIGHT = 72; // px per automation lane
+export const VELOCITY_LANE_BAR_WIDTH = 6; // px width per velocity/CC bar
+
+export const LANE_DEFS: LaneMeta[] = [
+  { type: "velocity",  label: "velocity",   min: 1,     max: 127,  defaultValue: 100, color: "#fbbf24" },
+  { type: "attack",    label: "attack",     min: 0,     max: 127,  defaultValue: 0,   color: "#34d399" },
+  { type: "release",   label: "release",    min: 0,     max: 127,  defaultValue: 0,   color: "#818cf8" },
+  { type: "mod",       label: "mod",        min: 0,     max: 127,  defaultValue: 0,   color: "#c084fc" },
+  { type: "pitchbend", label: "pitch bend", min: -8191, max: 8191, defaultValue: 0,   color: "#e879f9" },
+];
 
 // MIDI note name conversion: MIDI 60 → 'C4', 69 → 'A4'.
 // Uses flat names (Db, Eb, Gb, Ab, Bb) as expected by soundfont-player.

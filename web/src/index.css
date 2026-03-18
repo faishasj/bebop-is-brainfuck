@@ -1571,6 +1571,97 @@ code {
   }
 }
 
+/* ── Automation lanes ────────────────────────────────────────── */
+
+.auto-lanes {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  /* Show ~2 lanes by default; scroll vertically to reveal more */
+  max-height: 144px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.auto-lane {
+  display: flex;
+  height: 72px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auto-lane:last-child {
+  border-bottom: none;
+}
+
+.auto-lane__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  border-left: 2px solid rgba(22, 188, 213, 0.45);
+  user-select: none;
+}
+
+.auto-lane__label {
+  font-family: "Josefin Sans", sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.auto-lane__canvas-wrapper {
+  flex: 1;
+  overflow-x: hidden;
+  position: relative;
+  background: var(--surface);
+  cursor: crosshair;
+  min-width: 0;
+}
+
+.auto-lane__canvas {
+  position: relative;
+  height: 100%;
+}
+
+.auto-lane__bar {
+  position: absolute;
+  border-radius: 2px 2px 0 0;
+  cursor: ns-resize;
+  transition: filter 0.08s;
+  opacity: 0.85;
+}
+
+.auto-lane__bar:hover {
+  opacity: 1;
+  filter: brightness(1.35);
+  box-shadow: 0 0 4px currentColor;
+}
+
+.auto-lane__bar--active {
+  opacity: 1;
+  filter: brightness(1.4);
+}
+
+/* Pending new CC event — slightly dimmed until committed */
+.auto-lane__bar--ghost {
+  opacity: 0.6;
+}
+
+/* Horizontal center line for pitch-bend lane */
+.auto-lane__center-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
 /* ── Piano roll context menu ── */
 .pr-context-menu {
   position: fixed;

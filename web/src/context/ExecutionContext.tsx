@@ -78,6 +78,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     rollNotes,
     editingNotes,
     allTracksNotes,
+    allTracksCCEvents,
     tracks,
     trackIndex,
     editingTrackIndex,
@@ -131,6 +132,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   editingNotesRef.current = editingNotes;
   const allTracksNotesRef = useRef(allTracksNotes);
   allTracksNotesRef.current = allTracksNotes;
+  const allTracksCCEventsRef = useRef(allTracksCCEvents);
+  allTracksCCEventsRef.current = allTracksCCEvents;
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
   const trackIndexRef = useRef(trackIndex);
@@ -390,6 +393,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       playNotes,
       bpmRef.current,
       fromBeat,
+      allTracksCCEventsRef.current[editingTrackIndexRef.current],
     );
     setIsPlaying(true);
     startRaf();
@@ -479,7 +483,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
         ...new Set(stepNotes.map((n) => n.instrument ?? DEFAULT_INSTRUMENT)),
       ];
       await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
-      await playBeatNotes(stepNotes, bpmRef.current, cur);
+      await playBeatNotes(stepNotes, bpmRef.current, cur, allTracksCCEventsRef.current[editingTrackIndexRef.current]);
     }
 
     // Update live output/tape up to the new beat
@@ -616,6 +620,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       rollNotes,
       stdin,
       allTracksNotes,
+      allTracksCCEvents,
       tracks,
       runMode,
       hasRun,

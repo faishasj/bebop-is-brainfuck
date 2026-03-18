@@ -1,4 +1,4 @@
-type IconName = "chevron-down" | "pencil" | "trash" | "check" | "undo" | "redo";
+type IconName = "chevron-down" | "pencil" | "trash" | "check" | "undo" | "redo" | "bars";
 
 interface IconProps {
   name: IconName;
@@ -141,6 +141,20 @@ export function Icon({ name }: IconProps) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      </svg>
+    );
+  } else if (name === "bars") {
+    return (
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        fill="none"
+        aria-hidden="true"
+      >
+        <rect x="1" y="8" width="2" height="3" rx="0.5" fill="currentColor" />
+        <rect x="4.5" y="5" width="2" height="6" rx="0.5" fill="currentColor" />
+        <rect x="8" y="2" width="2" height="9" rx="0.5" fill="currentColor" />
       </svg>
     );
   }

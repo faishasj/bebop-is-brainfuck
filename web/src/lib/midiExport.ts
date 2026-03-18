@@ -1,6 +1,11 @@
 import { writeMidi, type MidiData } from "midi-file";
 import { type BeatNote, DEFAULT_INSTRUMENT } from "./player.js";
 import { type Scale } from "./scales.js";
+import {
+  type CCEvent,
+  type TrackCCEvents,
+  emptyTrackCCEvents,
+} from "./automationTypes.js";
 
 export const DEFAULT_FILENAME = "composition.mid";
 
@@ -127,23 +132,26 @@ export function getTrackInstrument(
 // Convert a parsed MIDI track back into piano-roll BeatNote[] format.
 // Mirrors the note-pairing logic of playParsedMidiTrack.
 // Root note = lowest noteOn at absoluteTick === 0; returned separately (not in notes[]).
+// Also collects CC73/CC72/CC1/pitchBend events into ccEvents.
 // Returns null if the track is missing or has no root note.
 export function parsedMidiToRollNotes(
   parsedMidi: MidiData,
   trackIndex: number,
-): { notes: (BeatNote & { id: string })[]; rootNote: number; rootNoteDuration: number } | null {
+): { notes: (BeatNote & { id: string })[]; rootNote: number; rootNoteDuration: number; ccEvents: TrackCCEvents } | null {
   const track = parsedMidi.tracks[trackIndex];
   if (!track) return null;
 
   const ticksPerBeat = parsedMidi.header.ticksPerBeat ?? 480;
   const openNotes = new Map<number, { startTick: number; velocity: number }>();
   const notes: (BeatNote & { id: string })[] = [];
+  const ccEvents = emptyTrackCCEvents();
   let rootNote = -1;
   let rootNoteDuration = 1;
   let absoluteTick = 0;
 
   for (const event of track) {
     absoluteTick += event.deltaTime;
+    const beat = absoluteTick / ticksPerBeat;
     if (event.type === "noteOn" && event.velocity > 0) {
       // Track root: lowest noteOn at tick 0 (matches transpiler Phase 1 logic)
       if (
@@ -182,27 +190,40 @@ export function parsedMidiToRollNotes(
         }
         openNotes.delete(event.noteNumber);
       }
+    } else if (event.type === "controller") {
+      const ct = (event as { controllerType: number; value: number }).controllerType;
+      const val = (event as { controllerType: number; value: number }).value;
+      const ccEvt: CCEvent = { id: crypto.randomUUID(), beat, value: val };
+      if (ct === 73) ccEvents.attack.push(ccEvt);
+      else if (ct === 72) ccEvents.release.push(ccEvt);
+      else if (ct === 1) ccEvents.mod.push(ccEvt);
+    } else if (event.type === "pitchBend") {
+      const val = (event as { value: number }).value;
+      ccEvents.pitchbend.push({ id: crypto.randomUUID(), beat, value: val });
     }
   }
 
   if (rootNote === -1) return null;
-  return { notes, rootNote, rootNoteDuration };
+  return { notes, rootNote, rootNoteDuration, ccEvents };
 }
 
 // Extract all notes from a track as beat-based BeatNotes (no root-note filtering).
+// Also collects CC73/CC72/CC1/pitchBend events into ccEvents.
 // Used for displaying and playing back non-program tracks.
 export function trackToBeatNotes(
   parsedMidi: MidiData,
   trackIndex: number,
-): (BeatNote & { id: string })[] {
+): { notes: (BeatNote & { id: string })[]; ccEvents: TrackCCEvents } {
   const track = parsedMidi.tracks[trackIndex];
-  if (!track) return [];
+  if (!track) return { notes: [], ccEvents: emptyTrackCCEvents() };
   const ticksPerBeat = parsedMidi.header.ticksPerBeat ?? 480;
   const openNotes = new Map<number, { startTick: number; velocity: number }>();
   const notes: (BeatNote & { id: string })[] = [];
+  const ccEvents = emptyTrackCCEvents();
   let absoluteTick = 0;
   for (const event of track) {
     absoluteTick += event.deltaTime;
+    const beat = absoluteTick / ticksPerBeat;
     if (event.type === "noteOn" && event.velocity > 0) {
       openNotes.set(event.noteNumber, {
         startTick: absoluteTick,
@@ -226,9 +247,19 @@ export function trackToBeatNotes(
         });
         openNotes.delete(event.noteNumber);
       }
+    } else if (event.type === "controller") {
+      const ct = (event as { controllerType: number; value: number }).controllerType;
+      const val = (event as { controllerType: number; value: number }).value;
+      const ccEvt: CCEvent = { id: crypto.randomUUID(), beat, value: val };
+      if (ct === 73) ccEvents.attack.push(ccEvt);
+      else if (ct === 72) ccEvents.release.push(ccEvt);
+      else if (ct === 1) ccEvents.mod.push(ccEvt);
+    } else if (event.type === "pitchBend") {
+      const val = (event as { value: number }).value;
+      ccEvents.pitchbend.push({ id: crypto.randomUUID(), beat, value: val });
     }
   }
-  return notes;
+  return { notes, ccEvents };
 }
 
 const TICKS_PER_BEAT = 480;
@@ -377,7 +408,15 @@ export function exportMidi(
 // Build the sorted delta-tick note events for a single track.
 // If isProgram, prepends the root note at tick 0 (required for BF transpile on re-import).
 // Always prepends a programChange event so the instrument survives export/import roundtrips.
+// If ccEvents is provided, controller (CC73/72/1) and pitchBend events are interleaved.
+// Sort order at equal ticks: CC/pitchBend (priority 0) < noteOff (1) < noteOn (2).
 type RawEvent = { deltaTime: number; type: string; [key: string]: unknown };
+
+// Tagged union for unified sorting before delta-tick conversion.
+type AbsoluteEvent =
+  | { absoluteTick: number; priority: 0; raw: RawEvent }           // CC / pitchBend
+  | { absoluteTick: number; priority: 1; raw: RawEvent }           // noteOff (velocity=0)
+  | { absoluteTick: number; priority: 2; raw: RawEvent };          // noteOn  (velocity>0)
 
 function buildNoteEvents(
   notes: BeatNote[],
@@ -385,52 +424,72 @@ function buildNoteEvents(
   rootNote: number,
   instrument: string,
   rootNoteDuration = 1,
+  ccEvents?: TrackCCEvents,
 ): RawEvent[] {
-  type AbsEvent = {
-    absoluteTick: number;
-    noteNumber: number;
-    velocity: number;
-    isNoteOff: boolean;
-  };
-  const absEvents: AbsEvent[] = [];
+  const absEvents: AbsoluteEvent[] = [];
 
+  // ── Note events ────────────────────────────────────────────────────────────
   if (isProgram) {
     absEvents.push({
       absoluteTick: 0,
-      noteNumber: rootNote,
-      velocity: 100,
-      isNoteOff: false,
+      priority: 2,
+      raw: { deltaTime: 0, type: "noteOn", channel: 0, noteNumber: rootNote, velocity: 100 },
     });
     absEvents.push({
       absoluteTick: Math.round(rootNoteDuration * TICKS_PER_BEAT),
-      noteNumber: rootNote,
-      velocity: 0,
-      isNoteOff: true,
+      priority: 1,
+      raw: { deltaTime: 0, type: "noteOn", channel: 0, noteNumber: rootNote, velocity: 0 },
     });
   }
 
   for (const note of notes) {
     const startTick = Math.round(note.beatStart * TICKS_PER_BEAT);
-    const endTick = Math.round(
-      (note.beatStart + note.durationBeats) * TICKS_PER_BEAT,
-    );
+    const endTick = Math.round((note.beatStart + note.durationBeats) * TICKS_PER_BEAT);
     absEvents.push({
       absoluteTick: startTick,
-      noteNumber: note.noteNumber,
-      velocity: note.velocity,
-      isNoteOff: false,
+      priority: 2,
+      raw: { deltaTime: 0, type: "noteOn", channel: 0, noteNumber: note.noteNumber, velocity: note.velocity },
     });
     absEvents.push({
       absoluteTick: endTick,
-      noteNumber: note.noteNumber,
-      velocity: 0,
-      isNoteOff: true,
+      priority: 1,
+      raw: { deltaTime: 0, type: "noteOn", channel: 0, noteNumber: note.noteNumber, velocity: 0 },
     });
   }
 
-  absEvents.sort(
-    (a, b) => a.absoluteTick - b.absoluteTick || (a.isNoteOff ? -1 : 1),
-  );
+  // ── CC / pitchBend events ──────────────────────────────────────────────────
+  if (ccEvents) {
+    for (const e of ccEvents.attack) {
+      absEvents.push({
+        absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
+        priority: 0,
+        raw: { deltaTime: 0, type: "controller", channel: 0, controllerType: 73, value: e.value },
+      });
+    }
+    for (const e of ccEvents.release) {
+      absEvents.push({
+        absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
+        priority: 0,
+        raw: { deltaTime: 0, type: "controller", channel: 0, controllerType: 72, value: e.value },
+      });
+    }
+    for (const e of ccEvents.mod) {
+      absEvents.push({
+        absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
+        priority: 0,
+        raw: { deltaTime: 0, type: "controller", channel: 0, controllerType: 1, value: e.value },
+      });
+    }
+    for (const e of ccEvents.pitchbend) {
+      absEvents.push({
+        absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
+        priority: 0,
+        raw: { deltaTime: 0, type: "pitchBend", channel: 0, value: e.value },
+      });
+    }
+  }
+
+  absEvents.sort((a, b) => a.absoluteTick - b.absoluteTick || a.priority - b.priority);
 
   // Prepend program change so the instrument is preserved on re-import
   const events: RawEvent[] = [
@@ -444,11 +503,8 @@ function buildNoteEvents(
   let prevTick = 0;
   for (const evt of absEvents) {
     events.push({
+      ...evt.raw,
       deltaTime: evt.absoluteTick - prevTick,
-      type: "noteOn",
-      channel: 0,
-      noteNumber: evt.noteNumber,
-      velocity: evt.velocity,
     });
     prevTick = evt.absoluteTick;
   }
@@ -458,6 +514,8 @@ function buildNoteEvents(
 // Export all tracks to a MIDI file and trigger a browser download.
 // Each track gets a trackName meta event. The program track also includes
 // the root note at tick 0 so the file is valid for re-import and BF transpile.
+// allTracksCCEvents: optional map of trackId → CC event lanes; written as
+// standard MIDI CC/pitchBend events interleaved with the note events.
 export function exportAllTracks(
   tracks: { id: number; name: string; instrument: string }[],
   allTracksNotes: Record<number, BeatNote[]>,
@@ -468,6 +526,7 @@ export function exportAllTracks(
   scale: Scale = "MAJOR",
   filename = "composition.mid",
   rootNoteDuration = 1,
+  allTracksCCEvents?: Record<number, TrackCCEvents>,
 ) {
   const microsecondsPerBeat = Math.round(60_000_000 / bpm);
 
@@ -506,7 +565,7 @@ export function exportAllTracks(
     const isProgram = t.id === programTrackId;
     const events: RawEvent[] = [
       { deltaTime: 0, type: "trackName", text: t.name },
-      ...buildNoteEvents(notes, isProgram, rootNote, t.instrument, rootNoteDuration),
+      ...buildNoteEvents(notes, isProgram, rootNote, t.instrument, rootNoteDuration, allTracksCCEvents?.[t.id]),
       { deltaTime: 0, type: "endOfTrack" },
     ];
     midiTracks.push(events);

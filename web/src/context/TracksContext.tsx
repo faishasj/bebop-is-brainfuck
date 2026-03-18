@@ -15,6 +15,12 @@ import {
   exportAllTracks,
   suggestSnapFromMidi,
 } from "../lib/midiExport.js";
+import {
+  type CCEvent,
+  type CCLaneType,
+  type TrackCCEvents,
+  emptyTrackCCEvents,
+} from "../lib/automationTypes.js";
 import { useComposition } from "./CompositionContext.js";
 
 export interface TrackMeta {
@@ -26,6 +32,7 @@ export interface TrackMeta {
 interface HistoryEntry {
   label: string;
   snapshot: Record<number, BeatNote[]>;
+  ccSnapshot: Record<number, TrackCCEvents>;
   tracks: TrackMeta[];
   editingTrackIndex: number;
 }
@@ -40,11 +47,13 @@ interface TracksContextValue {
   editingTrackIndex: number;
   setEditingTrackIndex: (i: number) => void;
   allTracksNotes: Record<number, BeatNote[]>;
+  allTracksCCEvents: Record<number, TrackCCEvents>;
   clipboard: Array<Omit<BeatNote, "id">> | null;
   setClipboard: (notes: Array<Omit<BeatNote, "id">> | null) => void;
   // Derived
   rollNotes: BeatNote[];
   editingNotes: BeatNote[];
+  editingTrackCCEvents: TrackCCEvents;
   isEditingProgram: boolean;
   otherTracksNotes: BeatNote[];
   trackHasNotes: Record<number, boolean>;
@@ -60,6 +69,13 @@ interface TracksContextValue {
     notes: BeatNote[],
     label: string,
   ) => void;
+  updateCCEventsWithHistory: (
+    trackId: number,
+    lane: CCLaneType,
+    events: CCEvent[],
+    label: string,
+  ) => void;
+  updateCCEvents: (trackId: number, lane: CCLaneType, events: CCEvent[]) => void;
   // Actions
   loadMidi: (parsed: MidiData, name: string) => void;
   addTrack: () => void;
@@ -99,6 +115,9 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
   const [allTracksNotes, setAllTracksNotes] = useState<
     Record<number, BeatNote[]>
   >({ 0: [] });
+  const [allTracksCCEvents, setAllTracksCCEvents] = useState<
+    Record<number, TrackCCEvents>
+  >({ 0: emptyTrackCCEvents() });
   const [clipboard, setClipboard] = useState<Array<
     Omit<BeatNote, "id">
   > | null>(null);
@@ -111,6 +130,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
   // Always-current refs so undo/redo read the latest state even from stale closures
   const allTracksNotesRef = useRef(allTracksNotes);
   allTracksNotesRef.current = allTracksNotes;
+  const allTracksCCEventsRef = useRef(allTracksCCEvents);
+  allTracksCCEventsRef.current = allTracksCCEvents;
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
   const editingTrackIndexRef = useRef(editingTrackIndex);
@@ -129,6 +150,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
 
   const rollNotes = allTracksNotes[trackIndex] ?? [];
   const editingNotes = allTracksNotes[editingTrackIndex] ?? [];
+  const editingTrackCCEvents: TrackCCEvents =
+    allTracksCCEvents[editingTrackIndex] ?? emptyTrackCCEvents();
   const isEditingProgram = editingTrackIndex === trackIndex;
 
   const otherTracksNotes = useMemo((): BeatNote[] => {
@@ -156,6 +179,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
 
     const progResult = parsedMidiToRollNotes(parsedMidi, trackIndex);
     const progNotes = progResult?.notes ?? [];
+    const progCC = progResult?.ccEvents ?? emptyTrackCCEvents();
     const rootNote = progResult?.rootNote ?? rollRootNote;
     const importedRootNoteDuration = progResult?.rootNoteDuration ?? 1;
     const maxBeat = progNotes.reduce(
@@ -173,13 +197,22 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       futureRef.current = [];
       const startIdx = parsedMidi.tracks.length > 1 ? 1 : 0;
       const newNotes: Record<number, BeatNote[]> = {};
+      const newCC: Record<number, TrackCCEvents> = {};
       for (let i = startIdx; i < parsedMidi.tracks.length; i++) {
-        newNotes[i] =
-          i === trackIndex ? progNotes : trackToBeatNotes(parsedMidi, i);
+        if (i === trackIndex) {
+          newNotes[i] = progNotes;
+          newCC[i] = progCC;
+        } else {
+          const { notes: tn, ccEvents: tc } = trackToBeatNotes(parsedMidi, i);
+          newNotes[i] = tn;
+          newCC[i] = tc;
+        }
       }
       setAllTracksNotes(newNotes);
+      setAllTracksCCEvents(newCC);
     } else {
       setAllTracksNotes((prev) => ({ ...prev, [trackIndex]: progNotes }));
+      setAllTracksCCEvents((prev) => ({ ...prev, [trackIndex]: progCC }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedMidi, trackIndex]);
@@ -259,6 +292,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       {
         label: "add track",
         snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
         tracks: tracksRef.current,
         editingTrackIndex: editingTrackIndexRef.current,
       },
@@ -270,6 +304,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     futureRef.current = [];
     setTracks((prev) => [...prev, newTrack]);
     setAllTracksNotes((prev) => ({ ...prev, [nextId]: [] }));
+    setAllTracksCCEvents((prev) => ({ ...prev, [nextId]: emptyTrackCCEvents() }));
     setEditingTrackIndex(nextId);
     forceHistoryUpdate((v) => v + 1);
   }
@@ -287,6 +322,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       {
         label: "delete track",
         snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
         tracks: tracksRef.current,
         editingTrackIndex: editingTrackIndexRef.current,
       },
@@ -298,6 +334,11 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     futureRef.current = [];
     setTracks((prev) => prev.filter((t) => t.id !== id));
     setAllTracksNotes((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setAllTracksCCEvents((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
@@ -337,6 +378,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       {
         label,
         snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
         tracks: tracksRef.current,
         editingTrackIndex: editingTrackIndexRef.current,
       },
@@ -348,6 +390,39 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     forceHistoryUpdate((v) => v + 1);
   }
 
+  function updateCCEventsWithHistory(
+    trackId: number,
+    lane: CCLaneType,
+    events: CCEvent[],
+    label: string,
+  ) {
+    const next = [
+      ...pastRef.current,
+      {
+        label,
+        snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
+        tracks: tracksRef.current,
+        editingTrackIndex: editingTrackIndexRef.current,
+      },
+    ];
+    pastRef.current =
+      next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+    futureRef.current = [];
+    setAllTracksCCEvents((prev) => ({
+      ...prev,
+      [trackId]: { ...(prev[trackId] ?? emptyTrackCCEvents()), [lane]: events },
+    }));
+    forceHistoryUpdate((v) => v + 1);
+  }
+
+  function updateCCEvents(trackId: number, lane: CCLaneType, events: CCEvent[]) {
+    setAllTracksCCEvents((prev) => ({
+      ...prev,
+      [trackId]: { ...(prev[trackId] ?? emptyTrackCCEvents()), [lane]: events },
+    }));
+  }
+
   function undo() {
     if (pastRef.current.length === 0) return;
     const entry = pastRef.current[pastRef.current.length - 1];
@@ -356,6 +431,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       {
         label: entry.label,
         snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
         tracks: tracksRef.current,
         editingTrackIndex: editingTrackIndexRef.current,
       },
@@ -364,6 +440,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
     pastRef.current = pastRef.current.slice(0, -1);
     setAllTracksNotes(entry.snapshot);
+    setAllTracksCCEvents(entry.ccSnapshot);
     setTracks(entry.tracks);
     setEditingTrackIndex(entry.editingTrackIndex);
     forceHistoryUpdate((v) => v + 1);
@@ -377,6 +454,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       {
         label: entry.label,
         snapshot: allTracksNotesRef.current,
+        ccSnapshot: allTracksCCEventsRef.current,
         tracks: tracksRef.current,
         editingTrackIndex: editingTrackIndexRef.current,
       },
@@ -385,6 +463,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
     futureRef.current = futureRef.current.slice(0, -1);
     setAllTracksNotes(entry.snapshot);
+    setAllTracksCCEvents(entry.ccSnapshot);
     setTracks(entry.tracks);
     setEditingTrackIndex(entry.editingTrackIndex);
     forceHistoryUpdate((v) => v + 1);
@@ -401,6 +480,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       scale,
       fileName || undefined,
       rootNoteDuration,
+      allTracksCCEvents,
     );
   }
 
@@ -413,6 +493,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     setTrackIndex(0);
     setEditingTrackIndex(0);
     setAllTracksNotes({ 0: [] });
+    setAllTracksCCEvents({ 0: emptyTrackCCEvents() });
     setClipboard(null);
     pastRef.current = [];
     futureRef.current = [];
@@ -434,10 +515,12 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     editingTrackIndex,
     setEditingTrackIndex,
     allTracksNotes,
+    allTracksCCEvents,
     clipboard,
     setClipboard,
     rollNotes,
     editingNotes,
+    editingTrackCCEvents,
     isEditingProgram,
     otherTracksNotes,
     trackHasNotes,
@@ -448,6 +531,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     undo,
     redo,
     updateNotesWithHistory,
+    updateCCEventsWithHistory,
+    updateCCEvents,
     loadMidi,
     addTrack,
     deleteTrack,
