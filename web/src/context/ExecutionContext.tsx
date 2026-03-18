@@ -73,7 +73,7 @@ interface ExecutionContextValue {
 const ExecutionContext = createContext<ExecutionContextValue | null>(null);
 
 export function ExecutionProvider({ children }: { children: React.ReactNode }) {
-  const { scale, bpm, timeSig, rollRootNote } = useComposition();
+  const { scale, bpm, timeSig, rollRootNote, rootNoteDuration } = useComposition();
   const {
     rollNotes,
     editingNotes,
@@ -154,6 +154,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       bpm,
       timeSig,
       scale,
+      rootNoteDuration,
     );
     const {
       brainfuck: bf,
@@ -165,7 +166,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       noteCommands: nc ?? [],
       transpileError: tErr ?? null,
     };
-  }, [rollNotes, rollRootNote, bpm, timeSig, scale]);
+  }, [rollNotes, rollRootNote, bpm, timeSig, scale, rootNoteDuration]);
   // Keep noteCommandsRef in sync
   noteCommandsRef.current = noteCommands;
   // ── Active BF char index ──────────────────────────────────────────────────

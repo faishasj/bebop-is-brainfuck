@@ -54,6 +54,8 @@ export function NoteGrid({
 }: NoteGridProps) {
   const {
     rollRootNote: rootNote,
+    rootNoteDuration,
+    setRootNoteDuration,
     scale,
     totalBeats,
     timeSig,
@@ -213,6 +215,7 @@ export function NoteGrid({
   );
   const [dragResizeState, setDragResizeState] =
     useState<DragResizeState | null>(null);
+  const [rootResizePreview, setRootResizePreview] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionRect, setSelectionRect] = useState<{
     x1: number;
@@ -435,6 +438,51 @@ export function NoteGrid({
       isDragging.current = false;
       pointerDownPos.current = null;
       setDragResizeState(null);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
+
+  // ── Root note resize ───────────────────────────────────────────────────────
+
+  function handleRootResizeMouseDown(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+
+    isDragging.current = false;
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    let lastDuration = rootNoteDuration;
+
+    function handleMouseMove(ev: MouseEvent) {
+      if (!pointerDownPos.current) return;
+      const dx = ev.clientX - pointerDownPos.current.x;
+      const dy = ev.clientY - pointerDownPos.current.y;
+      if (!isDragging.current && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        isDragging.current = true;
+      }
+      if (isDragging.current) {
+        const el = gridScrollRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const rawBeat = (ev.clientX - rect.left + el.scrollLeft) / BEAT_WIDTH;
+        const snappedEnd = snapBeat(rawBeat) + gridSnap;
+        lastDuration = Math.max(gridSnap, snappedEnd);
+        setRootResizePreview(lastDuration);
+      }
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+
+      if (isDragging.current) {
+        setRootNoteDuration(lastDuration);
+      }
+
+      isDragging.current = false;
+      pointerDownPos.current = null;
+      setRootResizePreview(null);
     }
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -800,7 +848,9 @@ export function NoteGrid({
             ? dragResizeState.edge === "left"
               ? "w-resize"
               : "e-resize"
-            : "crosshair",
+            : rootResizePreview !== null
+              ? "e-resize"
+              : "crosshair",
       }}
     >
       <div
@@ -817,7 +867,7 @@ export function NoteGrid({
               position: "absolute",
               top: rootTop,
               left: 0,
-              width: BEAT_WIDTH - 2,
+              width: (rootResizePreview ?? rootNoteDuration) * BEAT_WIDTH - 2,
               height: ROW_HEIGHT - 1,
               background: "var(--accent2)",
               borderRadius: 3,
@@ -828,11 +878,22 @@ export function NoteGrid({
               color: "white",
               fontWeight: 700,
               fontFamily: "monospace",
-              pointerEvents: "none",
               zIndex: 2,
+              userSelect: "none",
             }}
           >
             ROOT
+            <div
+              onMouseDown={handleRootResizeMouseDown}
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: Math.min(8, ((rootResizePreview ?? rootNoteDuration) * BEAT_WIDTH - 2) / 3),
+                cursor: "e-resize",
+              }}
+            />
           </div>
         )}
 

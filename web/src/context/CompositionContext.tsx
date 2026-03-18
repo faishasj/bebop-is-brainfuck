@@ -10,6 +10,8 @@ interface CompositionContextValue {
   setTimeSig: (ts: { num: number; den: number }) => void;
   rollRootNote: number;
   setRollRootNote: (n: number) => void;
+  rootNoteDuration: number;
+  setRootNoteDuration: (n: number) => void;
   totalBeats: number;
   setTotalBeats: (n: number) => void;
   gridSnap: number;
@@ -23,6 +25,7 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
   const [bpm, setBpm] = useState(120);
   const [timeSig, setTimeSig] = useState({ num: 4, den: 4 });
   const [rollRootNote, setRollRootNote] = useState(60); // C4
+  const [rootNoteDuration, setRootNoteDuration] = useState(1); // beats
   const [totalBeats, setTotalBeats] = useState(16);
   const [gridSnap, setGridSnap] = useState(0.5);
 
@@ -31,6 +34,7 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
     bpm, setBpm,
     timeSig, setTimeSig,
     rollRootNote, setRollRootNote,
+    rootNoteDuration, setRootNoteDuration,
     totalBeats, setTotalBeats,
     gridSnap, setGridSnap,
   };

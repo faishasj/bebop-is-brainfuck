@@ -131,7 +131,7 @@ export function getTrackInstrument(
 export function parsedMidiToRollNotes(
   parsedMidi: MidiData,
   trackIndex: number,
-): { notes: (BeatNote & { id: string })[]; rootNote: number } | null {
+): { notes: (BeatNote & { id: string })[]; rootNote: number; rootNoteDuration: number } | null {
   const track = parsedMidi.tracks[trackIndex];
   if (!track) return null;
 
@@ -139,6 +139,7 @@ export function parsedMidiToRollNotes(
   const openNotes = new Map<number, { startTick: number; velocity: number }>();
   const notes: (BeatNote & { id: string })[] = [];
   let rootNote = -1;
+  let rootNoteDuration = 1;
   let absoluteTick = 0;
 
   for (const event of track) {
@@ -175,6 +176,9 @@ export function parsedMidiToRollNotes(
             velocity: open.velocity,
             id: crypto.randomUUID(),
           });
+        } else if (event.noteNumber === rootNote) {
+          // Capture the root note's actual duration from the MIDI file
+          rootNoteDuration = Math.max(absoluteTick / ticksPerBeat, 0.125);
         }
         openNotes.delete(event.noteNumber);
       }
@@ -182,7 +186,7 @@ export function parsedMidiToRollNotes(
   }
 
   if (rootNote === -1) return null;
-  return { notes, rootNote };
+  return { notes, rootNote, rootNoteDuration };
 }
 
 // Extract all notes from a track as beat-based BeatNotes (no root-note filtering).
@@ -243,6 +247,7 @@ export function notesToParsedMidi(
   bpm: number,
   timeSig = { num: 4, den: 4 },
   scale: Scale = "MAJOR",
+  rootNoteDuration = 1,
 ): MidiData {
   const microsecondsPerBeat = Math.round(60_000_000 / bpm);
 
@@ -255,7 +260,7 @@ export function notesToParsedMidi(
     isNoteOff: boolean;
   }> = [];
 
-  // Root note: noteOn at tick 0, noteOff at tick TICKS_PER_BEAT
+  // Root note: noteOn at tick 0, noteOff at rootNoteDuration beats
   noteOnEvents.push({
     absoluteTick: 0,
     noteNumber: rootNote,
@@ -263,7 +268,7 @@ export function notesToParsedMidi(
     isNoteOff: false,
   });
   noteOnEvents.push({
-    absoluteTick: TICKS_PER_BEAT,
+    absoluteTick: Math.round(rootNoteDuration * TICKS_PER_BEAT),
     noteNumber: rootNote,
     velocity: 0,
     isNoteOff: true,
@@ -379,6 +384,7 @@ function buildNoteEvents(
   isProgram: boolean,
   rootNote: number,
   instrument: string,
+  rootNoteDuration = 1,
 ): RawEvent[] {
   type AbsEvent = {
     absoluteTick: number;
@@ -396,7 +402,7 @@ function buildNoteEvents(
       isNoteOff: false,
     });
     absEvents.push({
-      absoluteTick: TICKS_PER_BEAT,
+      absoluteTick: Math.round(rootNoteDuration * TICKS_PER_BEAT),
       noteNumber: rootNote,
       velocity: 0,
       isNoteOff: true,
@@ -461,6 +467,7 @@ export function exportAllTracks(
   timeSig = { num: 4, den: 4 },
   scale: Scale = "MAJOR",
   filename = "composition.mid",
+  rootNoteDuration = 1,
 ) {
   const microsecondsPerBeat = Math.round(60_000_000 / bpm);
 
@@ -499,7 +506,7 @@ export function exportAllTracks(
     const isProgram = t.id === programTrackId;
     const events: RawEvent[] = [
       { deltaTime: 0, type: "trackName", text: t.name },
-      ...buildNoteEvents(notes, isProgram, rootNote, t.instrument),
+      ...buildNoteEvents(notes, isProgram, rootNote, t.instrument, rootNoteDuration),
       { deltaTime: 0, type: "endOfTrack" },
     ];
     midiTracks.push(events);

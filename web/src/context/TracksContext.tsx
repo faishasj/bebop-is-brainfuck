@@ -77,6 +77,8 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
   const {
     rollRootNote,
     setRollRootNote,
+    rootNoteDuration,
+    setRootNoteDuration,
     setTotalBeats,
     setBpm,
     setTimeSig,
@@ -155,12 +157,14 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
     const progResult = parsedMidiToRollNotes(parsedMidi, trackIndex);
     const progNotes = progResult?.notes ?? [];
     const rootNote = progResult?.rootNote ?? rollRootNote;
+    const importedRootNoteDuration = progResult?.rootNoteDuration ?? 1;
     const maxBeat = progNotes.reduce(
       (m, n) => Math.max(m, n.beatStart + n.durationBeats),
       1,
     );
 
     setRollRootNote(rootNote);
+    setRootNoteDuration(importedRootNoteDuration);
     setTotalBeats(Math.ceil(maxBeat / 4) * 4 + 4);
     setEditingTrackIndex(trackIndex);
 
@@ -396,6 +400,7 @@ export function TracksProvider({ children }: { children: React.ReactNode }) {
       timeSig,
       scale,
       fileName || undefined,
+      rootNoteDuration,
     );
   }
 
