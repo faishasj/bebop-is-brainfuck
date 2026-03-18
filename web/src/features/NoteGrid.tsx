@@ -229,6 +229,9 @@ export function NoteGrid({
     pasteAnchor?: { beat: number; noteNumber: number };
   } | null>(null);
 
+  const isTouchDevice = useRef(
+    typeof window !== "undefined" && "ontouchstart" in window,
+  );
   const isDragging = useRef(false);
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const isSelecting = useRef(false);
@@ -356,6 +359,7 @@ export function NoteGrid({
 
   function handleGridContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
+    if (isTouchDevice.current) return;
     if (clipboard !== null) {
       const menuPos = clampMenuPos(e.clientX, e.clientY);
       const gridPos = getBeatAndNote(e.clientX, e.clientY);
@@ -376,6 +380,7 @@ export function NoteGrid({
     edge: "left" | "right",
   ) {
     e.stopPropagation();
+    if (isTouchDevice.current) return;
     if (e.button !== 0) return;
 
     isDragging.current = false;
@@ -448,6 +453,7 @@ export function NoteGrid({
 
   function handleRootResizeMouseDown(e: React.MouseEvent) {
     e.stopPropagation();
+    if (isTouchDevice.current) return;
     if (e.button !== 0) return;
 
     isDragging.current = false;
@@ -492,6 +498,7 @@ export function NoteGrid({
   // ── Creation drag ──────────────────────────────────────────────────────────
 
   function handleGridMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (isTouchDevice.current) return;
     if (e.button !== 0) return;
     if (contextMenu !== null) return;
 
@@ -635,6 +642,7 @@ export function NoteGrid({
 
   function handleNoteMouseDown(e: React.MouseEvent, note: NoteWithId) {
     e.stopPropagation();
+    if (isTouchDevice.current) return;
 
     if (e.button === 2) {
       e.preventDefault();
@@ -836,6 +844,7 @@ export function NoteGrid({
   return (
     <div
       ref={gridScrollRef}
+      className="note-grid-scroll"
       onScroll={onGridScroll}
       style={{
         flex: 1,

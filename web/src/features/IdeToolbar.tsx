@@ -456,7 +456,7 @@ export function IdeToolbar() {
 
         {activeTab === "compose" && (
           <>
-            <div className="ide-ribbon-group">
+            <div className="ide-ribbon-group ide-ribbon-group--tracks">
               <div className="ide-ribbon-group__controls">
                 <div style={{ display: "flex", alignItems: "stretch", gap: 2 }}>
                   {renamingTrack ? (
