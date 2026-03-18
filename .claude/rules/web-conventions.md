@@ -43,6 +43,87 @@ Applies when working in `web/src/`.
 - No CSS Modules, Tailwind, or CSS-in-JS.
 - Inline styles only for values that are computed at runtime (absolute positioning, dynamic dimensions, CSS variable references like `var(--accent2)`). Never inline static styles.
 
+## Design System
+
+### Aesthetic direction
+
+Neon jazz club: dark surfaces, magenta/cyan neon glow on interactive states, angular geometry. Think late-night bebop venue with neon signage — not generic dark-mode SaaS.
+
+### Typography
+
+Three font roles, never mixed up:
+
+| Font               | Weights loaded     | Used for                                                                       |
+| ------------------ | ------------------ | ------------------------------------------------------------------------------ |
+| **Josefin Sans**   | 300, 400, 600, 700 | All body/interactive text: buttons, tabs, dropdowns, inputs, body copy, modals |
+| **Syne**           | 600, 700, 800      | Structural all-caps labels & headings only (see list below)                    |
+| **JetBrains Mono** | 400, 600           | All code: BF display, output, tape cell values, stdin input                    |
+
+Syne is applied via a single grouped selector in `index.css`. Add new all-caps structural elements to that group; do not sprinkle `font-family: "Syne"` elsewhere. Elements currently in the Syne group: `.ide-titlebar strong`, `.ide-tab-btn.active`, `.ide-ribbon-group__title`, `.ide-stdin-label`, `.tape-heading`, `.panel h2`, `.run-mode-label`, `.ide-overlay-section h2`, `.ide-overlay-table th`, `.toc-heading`.
+
+**`text-transform: uppercase` rule:** only on structural micro-labels (ribbon group titles, panel `h2`, stdin/tape headings, table headers, overlay section headers). Never on buttons, tabs, or anything the user reads as content.
+
+### Color tokens (`--` CSS variables)
+
+| Variable       | Value      | Role                                                                 |
+| -------------- | ---------- | -------------------------------------------------------------------- |
+| `--bg`         | `#0a0915`  | App background                                                       |
+| `--surface`    | `#131122`  | Panel / card surfaces                                                |
+| `--surface2`   | `#1a1830`  | Inputs, ribbon, secondary surfaces                                   |
+| `--border`     | `#26224a`  | All borders and dividers                                             |
+| `--accent`     | `#e879f9`  | Primary neon — magenta. Hover glows, active tabs, track-group labels |
+| `--accent2`    | `#16bcd5`  | Secondary neon — cyan. Panel headings, data pointer, focus rings     |
+| `--accent3`    | `#f5a623`  | Tertiary warm amber — reserved for future use                        |
+| `--text`       | `#ede9fe`  | Primary text                                                         |
+| `--text-muted` | `#9188bc`  | Secondary / placeholder text                                         |
+| `--error-*`    | red family | Error states only                                                    |
+
+### Neon glow utilities
+
+Defined as CSS variables, use them on `box-shadow` / `filter`:
+
+| Variable      | Use                                                   |
+| ------------- | ----------------------------------------------------- |
+| `--glow-m`    | Full magenta glow — primary hover/active states       |
+| `--glow-c`    | Full cyan glow — focus rings, active data pointer     |
+| `--glow-m-sm` | Tight magenta glow — small buttons, copy button hover |
+| `--glow-c-sm` | Tight cyan glow — input focus, small accents          |
+
+### Component patterns
+
+**Buttons (`.ide-ribbon-btn`, `.play-btn`, `.modal-btn`):**
+
+- `border-radius: var(--radius)` (3px) — angular, not pill-shaped
+- Default state: muted text on `--surface2` background
+- Hover: border + text shift to `--accent`, add `box-shadow: var(--glow-m)` and `text-shadow`. The glow is the signal — not just a color change.
+- Disabled: `opacity: 0.35`, no pointer events
+
+**Ribbon groups (`.ide-ribbon-group`):**
+
+- No background tint. Instead: `border-left: 2px solid rgba(22, 188, 213, 0.45)` (cyan for data groups, magenta for track groups via `--track` modifier)
+- Group title has a `◆` pseudo-element via `::before` at `font-size: 1em`
+
+**Panel headings (`.panel h2`):**
+
+- Same left-border treatment as ribbon groups: `border-left: 2px solid var(--accent2); padding-left: 7px`
+- Color: `var(--accent2)`, Syne font, uppercase
+
+**Code blocks (`.code-block`):**
+
+- Subtle CRT scanlines via `repeating-linear-gradient` at 4px intervals, `rgba(0,0,0,0.22)` — visible but not distracting
+
+**Modals (`.modal-dialog`):**
+
+- `border-top: 2px solid var(--accent)` + `border-radius: 0 0 var(--radius-lg) var(--radius-lg)` — top accent bar like a club notice pinned to a board
+
+**Dropdowns (`.ide-dropdown`, `.play-split-dropdown`):**
+
+- Hover item: cyan tint background + `color: var(--accent2)` — not just a background flash
+
+**Live stdin (`.ide-stdin-input--live`):**
+
+- `animation: live-neon-flicker` — a multi-keyframe glow that briefly dims and spikes, simulating a neon tube buzzing, not a simple pulse
+
 ## Code Style
 
 - Double quotes for all string literals.
