@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type TapeSnapshot } from "../context/ExecutionContext.js";
 
 const CELL_WIDTH = 30; // px, matches .tape-cell width
 const CELL_GAP = 2; // px, matches .tape-strip gap
 const CELL_BORDER = 2; // 1px border each side
 const CELL_SLOT = CELL_WIDTH + CELL_BORDER + CELL_GAP;
+const TAPE_SIZE = 30_000;
 const MIN_CELLS = 4;
 const FALLBACK_CELLS = 32;
+const DRAG_THRESHOLD = 4;
 
 type DisplayFormat = "dec" | "hex" | "ascii";
 const FORMATS: DisplayFormat[] = ["dec", "hex", "ascii"];
@@ -30,39 +32,136 @@ export function TapeVisualization({
   const [fmt, setFmt] = useState<DisplayFormat>("dec");
   const stripRef = useRef<HTMLDivElement>(null);
   const [visibleCells, setVisibleCells] = useState(FALLBACK_CELLS);
+  const [isFollowing, setIsFollowing] = useState(true);
+  const [userViewStart, setUserViewStart] = useState(0);
+  const [gotoValue, setGotoValue] = useState("");
+  const [isDraggingCursor, setIsDraggingCursor] = useState(false);
 
+  // ── Stable refs for use in passive/document event closures ─────────────────
+  const viewStartRef = useRef(0);
+  const navigateRef = useRef((_n: number) => {});
+
+  // ── Resize observer for visible cell count ──────────────────────────────────
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      setVisibleCells(
-        Math.max(MIN_CELLS, Math.floor((w + CELL_GAP) / CELL_SLOT)),
-      );
+      setVisibleCells(Math.max(MIN_CELLS, Math.floor((w + CELL_GAP) / CELL_SLOT)));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const emptyCells = new Uint8Array(visibleCells);
+  // ── Reset to following when execution resets ────────────────────────────────
+  useEffect(() => {
+    if (snapshot === null) setIsFollowing(true);
+  }, [snapshot]);
 
   const dp = snapshot?.dp ?? 0;
-  const windowStart = snapshot?.windowStart ?? 0;
-  const cells = snapshot?.cells ?? emptyCells;
-  const dpOffset = dp - windowStart;
 
-  const half = Math.floor(visibleCells / 2);
-  let visStart = Math.max(0, dpOffset - half);
-  if (visStart + visibleCells > cells.length) {
-    visStart = Math.max(0, cells.length - visibleCells);
+  // Derive viewStart: auto-follow dp or use user's manual position
+  const viewStart = isFollowing
+    ? Math.max(0, Math.min(TAPE_SIZE - visibleCells, dp - Math.floor(visibleCells / 2)))
+    : userViewStart;
+  const viewEnd = Math.min(TAPE_SIZE, viewStart + visibleCells);
+
+  // ── Navigation ──────────────────────────────────────────────────────────────
+  const navigate = useCallback(
+    (newStart: number) => {
+      const clamped = Math.max(0, Math.min(TAPE_SIZE - visibleCells, newStart));
+      setUserViewStart(clamped);
+      setIsFollowing(false);
+    },
+    [visibleCells],
+  );
+
+  // Keep refs in sync so passive/document closures always have current values
+  viewStartRef.current = viewStart;
+  navigateRef.current = navigate;
+
+  // ── Wheel: passive:false listener so preventDefault works ───────────────────
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const raw = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      const cellDelta = Math.round(raw / CELL_SLOT) || Math.sign(raw);
+      navigateRef.current(viewStartRef.current + cellDelta);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // ── Drag-to-pan ─────────────────────────────────────────────────────────────
+  function handleStripMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    const startX = e.clientX;
+    const startViewStart = viewStartRef.current;
+    let dragging = false;
+
+    function handleMouseMove(ev: MouseEvent) {
+      const dx = ev.clientX - startX;
+      if (!dragging && Math.abs(dx) > DRAG_THRESHOLD) {
+        dragging = true;
+        setIsDraggingCursor(true);
+      }
+      if (dragging) {
+        const cellDelta = -Math.round(dx / CELL_SLOT);
+        navigateRef.current(startViewStart + cellDelta);
+      }
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      setIsDraggingCursor(false);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   }
-  const visEnd = Math.min(cells.length, visStart + visibleCells);
+
+  // ── Jump to cell ─────────────────────────────────────────────────────────────
+  function handleGotoSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(gotoValue, 10);
+    if (!isNaN(n) && n >= 0 && n < TAPE_SIZE) {
+      navigate(Math.max(0, n - Math.floor(visibleCells / 2)));
+    }
+  }
+
+  // ── Cell value lookup (null = outside captured snapshot window) ─────────────
+  function getCellValue(absIdx: number): number | null {
+    if (!snapshot) return null;
+    const { windowStart, cells } = snapshot;
+    const offset = absIdx - windowStart;
+    if (offset >= 0 && offset < cells.length) return cells[offset];
+    return null;
+  }
 
   return (
     <div className="tape">
       <div className="tape-header">
         <h2 className="tape-heading">Memory</h2>
         <span className="tape-pointer">ptr: {dp}</span>
+        <form className="tape-goto" onSubmit={handleGotoSubmit}>
+          <input
+            className="tape-goto-input"
+            type="text"
+            inputMode="numeric"
+            placeholder="cell #"
+            value={gotoValue}
+            onChange={(e) => setGotoValue(e.target.value)}
+          />
+          <button type="submit" className="tape-goto-btn">go</button>
+        </form>
+        {!isFollowing && (
+          <button className="tape-follow-btn" onClick={() => setIsFollowing(true)}>
+            follow ptr
+          </button>
+        )}
         <div className="tape-fmt">
           {FORMATS.map((f) => (
             <button
@@ -75,19 +174,26 @@ export function TapeVisualization({
           ))}
         </div>
       </div>
-      <div className="tape-strip" ref={stripRef}>
-        {Array.from({ length: visEnd - visStart }, (_, i) => {
-          const cellIdx = visStart + i;
-          const tapeIdx = windowStart + cellIdx;
-          const value = cells[cellIdx];
-          const isActive = tapeIdx === dp;
+      <div
+        className="tape-strip"
+        ref={stripRef}
+        onMouseDown={handleStripMouseDown}
+        style={{ cursor: isDraggingCursor ? "grabbing" : "grab" }}
+      >
+        {Array.from({ length: viewEnd - viewStart }, (_, i) => {
+          const absIdx = viewStart + i;
+          const value = getCellValue(absIdx);
+          const isActive = absIdx === dp;
+          const isKnown = value !== null;
           return (
             <div
-              key={tapeIdx}
-              className={`tape-cell${isActive ? " tape-cell--active" : ""}${value === 0 ? " tape-cell--zero" : ""}`}
+              key={absIdx}
+              className={`tape-cell${isActive ? " tape-cell--active" : ""}${isKnown && value === 0 ? " tape-cell--zero" : ""}${!isKnown ? " tape-cell--unknown" : ""}`}
             >
-              <span className="tape-cell-value">{formatValue(value, fmt)}</span>
-              <span className="tape-cell-index">{tapeIdx}</span>
+              <span className="tape-cell-value">
+                {isKnown ? formatValue(value, fmt) : "—"}
+              </span>
+              <span className="tape-cell-index">{absIdx}</span>
             </div>
           );
         })}

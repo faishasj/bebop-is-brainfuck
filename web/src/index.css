@@ -476,10 +476,73 @@ body {
   border-color: var(--accent2);
 }
 
+.tape-goto {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.tape-goto-input {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  width: 52px;
+  padding: 1px 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  outline: none;
+}
+
+.tape-goto-input:focus {
+  border-color: var(--text-muted);
+}
+
+.tape-goto-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.tape-goto-btn,
+.tape-follow-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.tape-goto-btn:hover,
+.tape-follow-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.tape-follow-btn {
+  color: var(--accent2);
+  border-color: var(--accent2);
+}
+
+.tape-follow-btn:hover {
+  background: rgba(22, 188, 213, 0.12);
+  color: var(--accent2);
+  border-color: var(--accent2);
+}
+
 .tape-strip {
   display: flex;
   gap: 2px;
-  overflow-x: auto;
+  overflow: hidden;
+  user-select: none;
 }
 
 .tape-cell {
@@ -506,6 +569,10 @@ body {
 .tape-cell--zero .tape-cell-value {
   color: var(--text-muted);
   opacity: 0.4;
+}
+
+.tape-cell--unknown {
+  opacity: 0.35;
 }
 
 .tape-cell-value {

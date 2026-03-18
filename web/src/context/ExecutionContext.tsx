@@ -24,7 +24,7 @@ import { notesToParsedMidi } from "../lib/midiExport.js";
 import { useComposition } from "./CompositionContext.js";
 import { useTracks } from "./TracksContext.js";
 
-const SNAPSHOT_WINDOW = 60;
+const SNAPSHOT_WINDOW = 512;
 
 export interface TapeSnapshot {
   dp: number;
