@@ -24,7 +24,7 @@ When Python and web behavior differ, Python wins.
 ### Scale → Interval Mapping (semitones from root)
 
 | Semitone | Major | Minor | Dominant |
-|----------|-------|-------|----------|
+| -------- | ----- | ----- | -------- |
 | 0        | `>`   | `>`   | `>`      |
 | 2        | `<`   | `<`   | `<`      |
 | 3        | `-`   | `+`   | `-`      |
@@ -41,6 +41,7 @@ Semitones 1, 6, and 12+ map to no command (ignored).
 ### Brainfuck Semantics
 
 Standard Brainfuck with:
+
 - **Tape**: 30,000 cells
 - **Cell values**: 0–255, wrapping in both directions
 - **Data pointer**: wraps at tape boundaries (circular)
@@ -60,10 +61,11 @@ python interpreter.py <midi_file> [--track N] [--scale MAJOR|MINOR|DOMINANT]
 - Reads from stdin for `,` commands
 
 **Key class:** `B2Interpreter(filename, track_no=1, scale=None)`
+
 - `.bebop_to_brainfuck()` — MIDI → Brainfuck string
 - `.evaluate()` — Execute transpiled Brainfuck
 
-**`computeSemitone` edge case:** If a note is exactly N octaves *below* the root (so `(root - note) % 12 == 0`), the computed semitone wraps to 12 and the note is **skipped**.
+**`computeSemitone` edge case:** If a note is exactly N octaves _below_ the root (so `(root - note) % 12 == 0`), the computed semitone wraps to 12 and the note is **skipped**.
 
 ---
 
@@ -110,11 +112,11 @@ web/src/
 
 State is split across three contexts. Keep concerns separated:
 
-| Context | Owns |
-|---------|------|
+| Context              | Owns                                                                 |
+| -------------------- | -------------------------------------------------------------------- |
 | `CompositionContext` | Musical composition settings (scale, BPM, root note, snap, time sig) |
-| `ExecutionContext` | Playback, interpreter, output, breakpoints |
-| `TracksContext` | Track list, per-track notes, undo/redo stacks, MIDI I/O |
+| `ExecutionContext`   | Playback, interpreter, output, breakpoints                           |
+| `TracksContext`      | Track list, per-track notes, undo/redo stacks, MIDI I/O              |
 
 ### Run Modes (`ExecutionContext`)
 
@@ -125,11 +127,13 @@ State is split across three contexts. Keep concerns separated:
 ### Critical Implementation Details
 
 #### `midi-file` Behavior
+
 - Events use `event.deltaTime`, `event.noteNumber`, `event.type === 'noteOn'`
 - **Does NOT** normalize `noteOn(velocity=0)` → `noteOff` (unlike Python's `mido`). The transpiler must skip velocity=0 events explicitly.
 - `writeMidi()` returns a plain `Array`, **not** `Uint8Array`. Always wrap: `new Uint8Array(writeMidi(...))` before creating a `Blob`.
 
 #### `soundfont-player` Behavior
+
 - `Soundfont.instrument(ac, name, opts)` returns a `Promise<Player>`.
 - `player.play(noteName, time, opts)` schedules audio — returns a Player, not a node.
 - `player.stop()` stops all notes immediately.
@@ -137,22 +141,26 @@ State is split across three contexts. Keep concerns separated:
 - Instrument cache lives on the singleton AudioContext. Invalidated when context is closed/recreated.
 
 #### MIDI Export Format
+
 - Track 0: Tempo track (setTempo, timeSignature, keySignature, scale hint as marker meta event)
 - Track 1: Always the program track (root note at tick 0, program notes following)
 - Additional tracks: background/accompaniment tracks
 - Each track has a `trackName` meta event; program tracks get `programChange` for instrument
 
 #### Piano Roll Conventions
+
 - Beat 0 is reserved for the root note. Program notes start at beat > 0.
 - `notesToParsedMidi()` converts piano roll notes + root into a synthetic `parsedMidi` for live preview without disk I/O.
 - `parsedMidiToRollNotes()` extracts notes from MIDI, filtering out the root note (lowest at tick 0).
 
 #### Undo/Redo
+
 - Implemented with ref-based stacks (`pastRef`, `futureRef`) in `TracksContext` — not useState — to avoid race conditions.
 - Capped at 50 entries per stack.
 - Always call `updateNotesWithHistory()` (not direct state setters) when making editable changes to notes.
 
 #### Tape Size
+
 - Web app: 30,000 cells (matches Brainfuck spec)
 - Python: 30,000 cells (`shift_right` wraps at 30,000 — verify before increasing)
 
@@ -160,21 +168,20 @@ State is split across three contexts. Keep concerns separated:
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `A` | Piano roll: add mode |
-| `D` | Piano roll: delete mode |
-| `Cmd/Ctrl+Z` | Undo |
-| `Cmd/Ctrl+Shift+Z` | Redo |
-| `Space` | Play / Pause / Resume from breakpoint |
-| `F10` | Step to next program note (when paused at breakpoint) |
+| Key                | Action                                                |
+| ------------------ | ----------------------------------------------------- |
+| `A`                | Piano roll: add mode                                  |
+| `D`                | Piano roll: delete mode                               |
+| `Cmd/Ctrl+Z`       | Undo                                                  |
+| `Cmd/Ctrl+Shift+Z` | Redo                                                  |
+| `Space`            | Play / Pause / Resume from breakpoint                 |
+| `F10`              | Step to next program note (when paused at breakpoint) |
 
 ---
 
 ## Deployment
 
 - **Netlify**: `netlify.toml` at `web/` root. Builds with `npm run build`, publishes `dist/`. No env changes needed.
-- **GitHub Pages**: Set `VITE_BASE_PATH=/bebop-brainfuck/` before build. Vite reads this for asset paths.
 
 ---
 

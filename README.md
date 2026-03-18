@@ -53,7 +53,7 @@ The tape is 30,000 cells with wrapping at both boundaries.
 
 ## `python/` — Interpreter
 
-The canonical interpreter and ground truth for language semantics.
+The canonical interpreter and ground truth for language semantics. See [`python/README.md`](python/README.md) for setup and usage instructions.
 
 ```bash
 python interpreter.py <midi_file> [--track N] [--scale MAJOR|MINOR|DOMINANT]
@@ -67,7 +67,7 @@ python interpreter.py <midi_file> [--track N] [--scale MAJOR|MINOR|DOMINANT]
 
 ## `web/` — IDE
 
-A full-featured browser IDE for composing, playing, and running B2 programs. Built with Vite + React + TypeScript.
+A full-featured browser IDE for composing, playing, and running B2 programs. Built with Vite + React + TypeScript. See [`web/README.md`](web/README.md) for setup and build instructions.
 
 ```bash
 cd web
