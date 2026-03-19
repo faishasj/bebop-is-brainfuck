@@ -350,6 +350,14 @@ body {
   color: var(--accent);
 }
 
+.ide-ribbon-hint {
+  align-self: end;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0 8px;
+  opacity: 0.8;
+}
+
 /* ── Ribbon / toolbar buttons ─────────────────────────────────
    Design: Sharp angular corners (radius:3px), neon glow on hover
    instead of just a color change. The glow makes them feel like

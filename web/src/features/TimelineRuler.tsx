@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useComposition } from "../context/CompositionContext.js";
 import { useExecution } from "../context/ExecutionContext.js";
 import { BEAT_WIDTH, KEYS_WIDTH } from "../lib/piano.js";
@@ -19,6 +20,38 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
   const beatsPerMeasure = timeSig.num;
 
   const isScrubbing = useRef(false);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+
+  function getTooltipText(clientX: number, clientY: number): { text: string; x: number; y: number } | null {
+    const el = scrollRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    // Don't show tooltip over the keys gutter
+    if (clientX - rect.left < 0) return null;
+    const raw = getRawBeatFromClient(clientX);
+    const tolerance = 10 / BEAT_WIDTH;
+    let nearestDist = Infinity;
+    for (const bp of breakpoints) {
+      const dist = Math.abs(bp - raw);
+      if (dist < tolerance && dist < nearestDist) nearestDist = dist;
+    }
+    const onBreakpoint = nearestDist < tolerance && nearestDist !== Infinity;
+    return {
+      text: `Left-click to move playhead\n${onBreakpoint ? "Right-click to delete breakpoint" : "Right-click to add breakpoint"}`,
+      x: clientX,
+      y: clientY,
+    };
+  }
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.clientX - rect.left < KEYS_WIDTH) {
+      setTooltip(null);
+      return;
+    }
+    const t = getTooltipText(e.clientX, e.clientY);
+    setTooltip(t);
+  }
 
   function getBeatFromClient(clientX: number): number {
     const el = scrollRef.current;
@@ -110,6 +143,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
   }
 
   return (
+    <>
     <div
       style={{
         display: "flex",
@@ -121,6 +155,8 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
         userSelect: "none",
       }}
       onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setTooltip(null)}
       onContextMenu={handleContextMenu}
     >
       <div
@@ -195,5 +231,16 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
         </div>
       </div>
     </div>
+    {tooltip !== null &&
+      createPortal(
+        <div
+          className="ide-tooltip"
+          style={{ position: "fixed", left: tooltip.x + 14, top: tooltip.y + 14, pointerEvents: "none", whiteSpace: "pre" }}
+        >
+          {tooltip.text}
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

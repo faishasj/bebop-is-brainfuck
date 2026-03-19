@@ -809,6 +809,9 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                 Breakpoints ({breakpoints.size})
               </div>
             </div>
+            <div className="ide-ribbon-hint">
+              Right-click the timeline ruler to add or remove breakpoints
+            </div>
           </>
         )}
       </div>
