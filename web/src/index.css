@@ -1610,9 +1610,21 @@ code {
     padding: 0.45rem 0.65rem;
     font-size: 0.75rem;
   }
+  /* Tab row — wrap so actions fall to a second line */
+  .ide-tabrow {
+    flex-wrap: wrap;
+  }
   .ide-tabrow-actions {
+    width: 100%;
+    margin-left: 0;
+    border-top: 1px solid var(--border);
     gap: 0.25rem;
-    padding: 0.25rem 0.15rem;
+    padding: 0.2rem 0.25rem;
+    justify-content: flex-end;
+  }
+  .run-mode-trigger {
+    font-size: 0.72rem;
+    padding: 0.28rem 0.5rem;
   }
   /* Override inline style={{ width: "13rem" }} on play/pause buttons */
   .play-btn,
@@ -1649,7 +1661,8 @@ code {
     font-size: 0.65rem;
   }
   .ide-piano-section {
-    flex: 0 0 55%;
+    flex: 1;
+    min-height: 40%;
   }
 
   /* Touch-action on the note grid scroll container */
@@ -1664,18 +1677,21 @@ code {
 
   /* Bottom panel — stack vertically, override JS inline height */
   .ide-bottom {
-    flex: 1;
+    flex: 0 0 auto;
     height: auto !important;
     min-height: 0;
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     overflow-y: auto;
   }
-  .panel {
-    min-height: 110px;
+  .ide-bottom .panel {
+    min-height: 80px;
+    max-height: 110px;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    overflow-y: auto;
   }
-  .panel:last-child {
+  .ide-bottom .panel:last-child {
     border-bottom: none;
   }
   .ide-stdin-input {
