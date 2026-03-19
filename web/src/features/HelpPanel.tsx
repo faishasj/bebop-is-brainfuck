@@ -453,6 +453,10 @@ export function HelpPanel() {
                 Output characters are revealed beat-by-beat in sync with the
                 audio as each <code>.</code> note is played. Pauses and waits
                 for a keypress when a <code>,</code> (input) note is reached.
+                When a <code>]</code> note is active, the matching loop range
+                is highlighted in the Brainfuck display, loop notes are tinted
+                in the note grid, and tape cells modified within that loop
+                iteration are highlighted in the memory tape.
               </li>
               <li>
                 <strong>Batch</strong> — runs the interpreter fully before
