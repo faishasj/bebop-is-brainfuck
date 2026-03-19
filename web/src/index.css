@@ -1634,6 +1634,9 @@ code {
     gap: 0.25rem;
     padding: 0.25rem 0.15rem;
   }
+  .run-mode-dropdown--hidden-mobile {
+    display: none;
+  }
   /* Run mode trigger — icon only */
   .run-mode-trigger {
     width: auto !important;

@@ -300,7 +300,7 @@ export function IdeToolbar() {
         <div className="ide-tabrow-actions">
           {/* Run mode picker */}
           <span className="run-mode-label">Mode</span>
-          <div className="run-mode-dropdown" ref={runModeMenuRef}>
+          <div className={`run-mode-dropdown${currentBeat > 0 ? " run-mode-dropdown--hidden-mobile" : ""}`} ref={runModeMenuRef}>
             <button
               className="run-mode-trigger"
               onClick={() => setRunModeOpen((o) => !o)}
