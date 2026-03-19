@@ -215,7 +215,9 @@ export function NoteGrid({
   );
   const [dragResizeState, setDragResizeState] =
     useState<DragResizeState | null>(null);
-  const [rootResizePreview, setRootResizePreview] = useState<number | null>(null);
+  const [rootResizePreview, setRootResizePreview] = useState<number | null>(
+    null,
+  );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionRect, setSelectionRect] = useState<{
     x1: number;
@@ -464,7 +466,10 @@ export function NoteGrid({
       if (!pointerDownPos.current) return;
       const dx = ev.clientX - pointerDownPos.current.x;
       const dy = ev.clientY - pointerDownPos.current.y;
-      if (!isDragging.current && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+      if (
+        !isDragging.current &&
+        Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD
+      ) {
         isDragging.current = true;
       }
       if (isDragging.current) {
@@ -899,7 +904,11 @@ export function NoteGrid({
                 right: 0,
                 top: 0,
                 bottom: 0,
-                width: Math.min(8, ((rootResizePreview ?? rootNoteDuration) * BEAT_WIDTH - 2) / 3),
+                width: Math.min(
+                  8,
+                  ((rootResizePreview ?? rootNoteDuration) * BEAT_WIDTH - 2) /
+                    3,
+                ),
                 cursor: "e-resize",
               }}
             />
@@ -1077,6 +1086,7 @@ export function NoteGrid({
           return (
             <div
               key={note.id}
+              className="pr-note"
               onMouseDown={(e) => handleNoteMouseDown(e, note)}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -1100,8 +1110,9 @@ export function NoteGrid({
                 fontFamily: "monospace",
                 cursor: editorMode === "delete" ? "grab" : "move",
                 zIndex: 3,
+                filter: isActive ? "brightness(1.4)" : undefined,
                 boxShadow: isActive
-                  ? "0 0 0 2px white"
+                  ? "0 0 10px 2px rgba(255,255,255,0.55), 0 0 0 1px rgba(255,255,255,0.8)"
                   : isSelected
                     ? "0 0 0 2px var(--accent)"
                     : undefined,
