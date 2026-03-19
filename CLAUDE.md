@@ -135,10 +135,11 @@ State is split across three contexts. Keep concerns separated:
 #### `soundfont-player` Behavior
 
 - `Soundfont.instrument(ac, name, opts)` returns a `Promise<Player>`.
-- `player.play(noteName, time, opts)` schedules audio — returns a Player, not a node.
+- `player.play(noteName, time, opts)` schedules audio — returns a node-like object with `.source` (AudioBufferSourceNode) and `.stop()`. The `.source.detune` AudioParam is used for pitch bend and modulation automation.
 - `player.stop()` stops all notes immediately.
 - Must be triggered from a user gesture (browser autoplay policy).
 - Instrument cache lives on the singleton AudioContext. Invalidated when context is closed/recreated.
+- Pitch bend and modulation (CC1) are applied per-note via Web Audio's `detune` AudioParam on the source node. Pitch bend schedules value ramps; modulation connects an LFO oscillator through a gain node.
 
 #### MIDI Export Format
 

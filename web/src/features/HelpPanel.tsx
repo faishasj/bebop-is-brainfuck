@@ -376,8 +376,8 @@ export function HelpPanel() {
                     <strong>Modulation</strong> (CC1)
                   </td>
                   <td>
-                    Standard MIDI modulation wheel (0–127). Exported to MIDI
-                    only.
+                    Vibrato depth (0–127). Applied as a 5.5 Hz pitch wobble
+                    during Web Audio playback and exported to MIDI.
                   </td>
                 </tr>
                 <tr>
@@ -386,7 +386,8 @@ export function HelpPanel() {
                   </td>
                   <td>
                     Pitch bend range (−8191–+8191). Bars above the centre line
-                    bend up, below bend down. Exported to MIDI only.
+                    bend up, below bend down (±2 semitones). Affects Web Audio
+                    playback and is exported to MIDI.
                   </td>
                 </tr>
               </tbody>
@@ -408,10 +409,11 @@ export function HelpPanel() {
               </li>
             </ul>
             <p className="ide-overlay-muted">
-              Attack and release values apply to the first event at or before
-              each note's beat position — later events override earlier ones. CC
-              and pitch bend events survive note edits; deleting a note does not
-              remove automation at that position.
+              Attack, release, modulation, and pitch bend values apply from the
+              last event at or before each note's beat position — later events
+              override earlier ones. Changes during a note are smoothly
+              interpolated. CC and pitch bend events survive note edits;
+              deleting a note does not remove automation at that position.
             </p>
 
             <h3 id="help-tracks">Tracks</h3>

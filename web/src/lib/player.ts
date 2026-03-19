@@ -64,10 +64,79 @@ export interface BeatNote {
   instrument?: string;
 }
 
+// ── Pitch bend / modulation constants ────────────────────────────────────────
+const PITCH_BEND_RANGE_CENTS = 200; // ±2 semitones (standard GM pitch bend range)
+const PITCH_BEND_MAX = 8191;        // MIDI pitch bend max absolute value
+const MOD_VIBRATO_MAX_CENTS = 50;   // max vibrato depth at CC1 = 127
+const MOD_VIBRATO_RATE_HZ = 5.5;    // vibrato LFO frequency
+
+// Apply pitch bend and modulation automation to a played note's source node.
+// Uses the AudioBufferSourceNode's `detune` AudioParam (untouched by soundfont-player).
+function applyPitchAndMod(
+  ac: AudioContext,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  playedNode: any,
+  ccEvents: TrackCCEvents,
+  noteStartBeat: number,
+  noteEndBeat: number,
+  startBeat: number,
+  secPerBeat: number,
+  audioNow: number,
+  clippedStartSec: number,
+  clippedDurationSec: number,
+) {
+  const source: AudioBufferSourceNode | undefined = playedNode?.source;
+  if (!source?.detune) return;
+
+  const activeStartBeat = Math.max(noteStartBeat, startBeat);
+
+  // ── Pitch bend ──────────────────────────────────────────────────────────
+  const initialBend = getLastCCBefore(ccEvents.pitchbend, activeStartBeat) ?? 0;
+  const bendsInRange = ccEvents.pitchbend.filter(
+    (e) => e.beat > activeStartBeat && e.beat <= noteEndBeat,
+  );
+
+  if (initialBend !== 0 || bendsInRange.length > 0) {
+    const toCents = (v: number) => (v / PITCH_BEND_MAX) * PITCH_BEND_RANGE_CENTS;
+    source.detune.setValueAtTime(toCents(initialBend), audioNow + clippedStartSec);
+    for (const evt of bendsInRange) {
+      const evtSec = (evt.beat - startBeat) * secPerBeat;
+      source.detune.linearRampToValueAtTime(toCents(evt.value), audioNow + evtSec);
+    }
+  }
+
+  // ── Modulation (vibrato via LFO → detune) ──────────────────────────────
+  const initialMod = getLastCCBefore(ccEvents.mod, activeStartBeat) ?? 0;
+  const hasModDuringNote = ccEvents.mod.some(
+    (e) => e.beat > activeStartBeat && e.beat <= noteEndBeat,
+  );
+
+  if (initialMod > 0 || hasModDuringNote) {
+    const toDepth = (v: number) => (v / 127) * MOD_VIBRATO_MAX_CENTS;
+    const lfo = ac.createOscillator();
+    const lfoGain = ac.createGain();
+    lfo.frequency.value = MOD_VIBRATO_RATE_HZ;
+    lfoGain.gain.setValueAtTime(toDepth(initialMod), audioNow + clippedStartSec);
+
+    // Schedule mod depth changes during the note
+    for (const evt of ccEvents.mod) {
+      if (evt.beat > activeStartBeat && evt.beat <= noteEndBeat) {
+        const evtSec = (evt.beat - startBeat) * secPerBeat;
+        lfoGain.gain.linearRampToValueAtTime(toDepth(evt.value), audioNow + evtSec);
+      }
+    }
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(source.detune);
+    lfo.start(audioNow + clippedStartSec);
+    lfo.stop(audioNow + clippedStartSec + clippedDurationSec);
+  }
+}
+
 // Play a sequence of beat-based notes at the given BPM.
 // startBeat allows playback to begin at an arbitrary position.
-// ccEvents: optional per-track automation — attack (CC73) and release (CC72) are
-// applied to each note's soundfont envelope. Values are scaled to seconds.
+// ccEvents: optional per-track automation — attack/release shape the soundfont
+// envelope; mod and pitch bend are applied via Web Audio detune automation.
 // Returns the remaining duration in seconds from startBeat so the caller can set a completion timer.
 export async function playBeatNotes(
   notes: BeatNote[],
@@ -111,12 +180,22 @@ export async function playBeatNotes(
         const releaseRaw = ccEvents ? getLastCCBefore(ccEvents.release, note.beatStart) : null;
         const attackSec = attackRaw !== null ? (attackRaw / 127) * 2 : undefined;
         const releaseSec = releaseRaw !== null ? (releaseRaw / 127) * 4 : undefined;
-        player.play(getMidiNoteName(note.noteNumber), now + clippedStartSec, {
+        const playedNode = player.play(getMidiNoteName(note.noteNumber), now + clippedStartSec, {
           duration: clippedDurationSec,
           gain,
           ...(attackSec !== undefined ? { attack: attackSec } : {}),
           ...(releaseSec !== undefined ? { release: releaseSec } : {}),
         });
+
+        // Apply pitch bend and modulation to the source node's detune param
+        if (ccEvents) {
+          applyPitchAndMod(
+            ac, playedNode, ccEvents,
+            note.beatStart, note.beatStart + note.durationBeats,
+            startBeat, secPerBeat, now,
+            clippedStartSec, clippedDurationSec,
+          );
+        }
 
         const absEndSec =
           note.beatStart * secPerBeat + note.durationBeats * secPerBeat;

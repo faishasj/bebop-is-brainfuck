@@ -15,8 +15,8 @@ export interface CCEvent {
 export interface TrackCCEvents {
   attack: CCEvent[];    // CC73 — mapped to soundfont attack (0–2 s)
   release: CCEvent[];   // CC72 — mapped to soundfont release (0–4 s)
-  mod: CCEvent[];       // CC1  — MIDI export only
-  pitchbend: CCEvent[]; // pitchBend — MIDI export only
+  mod: CCEvent[];       // CC1  — vibrato depth during playback
+  pitchbend: CCEvent[]; // pitchBend — detune during playback
 }
 
 // Metadata describing a single automation lane (used by both piano.ts and UI).
