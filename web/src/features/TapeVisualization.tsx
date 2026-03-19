@@ -24,11 +24,15 @@ function formatValue(value: number, fmt: DisplayFormat): string {
   }
 }
 
+interface TapeVisualizationProps {
+  snapshot: TapeSnapshot | null;
+  loopHighlightCells?: Set<number>;
+}
+
 export function TapeVisualization({
   snapshot,
-}: {
-  snapshot: TapeSnapshot | null;
-}) {
+  loopHighlightCells,
+}: TapeVisualizationProps) {
   const [fmt, setFmt] = useState<DisplayFormat>("dec");
   const stripRef = useRef<HTMLDivElement>(null);
   const [visibleCells, setVisibleCells] = useState(FALLBACK_CELLS);
@@ -190,11 +194,12 @@ export function TapeVisualization({
           const absIdx = (viewStart + i) % TAPE_SIZE;
           const value = getCellValue(absIdx);
           const isActive = absIdx === dp;
+          const isLoopChanged = !isActive && (loopHighlightCells?.has(absIdx) ?? false);
           const isKnown = value !== null;
           return (
             <div
               key={absIdx}
-              className={`tape-cell${isActive ? " tape-cell--active" : ""}${isKnown && value === 0 ? " tape-cell--zero" : ""}${!isKnown ? " tape-cell--unknown" : ""}`}
+              className={`tape-cell${isActive ? " tape-cell--active" : ""}${isLoopChanged ? " tape-cell--loop" : ""}${isKnown && value === 0 ? " tape-cell--zero" : ""}${!isKnown ? " tape-cell--unknown" : ""}`}
             >
               <span className="tape-cell-value">
                 {isKnown ? formatValue(value, fmt) : "—"}

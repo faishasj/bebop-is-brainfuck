@@ -54,6 +54,8 @@ interface ExecutionContextValue {
   activeBfCharIndex: number;
   canResume: boolean;
   loopHighlightBeats: Set<number>;
+  loopHighlightCharRange: [number, number] | null;
+  loopHighlightCells: Set<number>;
   // Breakpoints
   breakpoints: Set<number>;
   isPausedAtBreakpoint: boolean;
@@ -218,6 +220,49 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     }
     return beats;
   }, [activeBfCharIndex, brainfuck, bracketMap, noteCommands]);
+
+  // ── Loop highlight: BF char range [open, close] ───────────────────────────
+  const loopHighlightCharRange = useMemo((): [number, number] | null => {
+    if (activeBfCharIndex < 0 || brainfuck[activeBfCharIndex] !== "]")
+      return null;
+    const openIdx = bracketMap.get(activeBfCharIndex);
+    if (openIdx === undefined) return null;
+    return [openIdx, activeBfCharIndex];
+  }, [activeBfCharIndex, brainfuck, bracketMap]);
+
+  // ── Loop highlight: tape cells that changed between [ and ] snapshots ─────
+  const loopHighlightCells = useMemo(() => {
+    if (activeBfCharIndex < 0 || brainfuck[activeBfCharIndex] !== "]")
+      return new Set<number>();
+    const openCharIdx = bracketMap.get(activeBfCharIndex);
+    if (openCharIdx === undefined) return new Set<number>();
+
+    const snaps = liveTapeSnapshotsRef.current;
+    const cmds = noteCommandsRef.current;
+    const openCmdIdx = cmds.findIndex((c) => c.charIndex === openCharIdx);
+    const closeCmdIdx = cmds.findIndex((c) => c.charIndex === activeBfCharIndex);
+    if (openCmdIdx < 0 || closeCmdIdx < 0 || !snaps.length)
+      return new Set<number>();
+
+    const before = snaps[openCmdIdx];
+    const after = snaps[closeCmdIdx];
+    if (!before || !after) return new Set<number>();
+
+    const changed = new Set<number>();
+    const lo = Math.min(before.windowStart, after.windowStart);
+    const hi = Math.max(
+      before.windowStart + before.cells.length,
+      after.windowStart + after.cells.length,
+    );
+    for (let i = lo; i < hi; i++) {
+      const bOff = i - before.windowStart;
+      const aOff = i - after.windowStart;
+      const bVal = bOff >= 0 && bOff < before.cells.length ? before.cells[bOff] : 0;
+      const aVal = aOff >= 0 && aOff < after.cells.length ? after.cells[aOff] : 0;
+      if (bVal !== aVal) changed.add(i);
+    }
+    return changed;
+  }, [activeBfCharIndex, brainfuck, bracketMap]);
 
   const canResume =
     currentBeat > 0 &&
@@ -838,6 +883,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     activeBfCharIndex,
     canResume,
     loopHighlightBeats,
+    loopHighlightCharRange,
+    loopHighlightCells,
     breakpoints,
     isPausedAtBreakpoint,
     toggleBreakpoint,

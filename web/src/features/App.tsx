@@ -29,6 +29,8 @@ function AppLayout() {
     liveDisplayedOutput,
     liveTapeState,
     runMode,
+    loopHighlightCharRange,
+    loopHighlightCells,
   } = useExecution();
 
   const [bottomHeight, setBottomHeight] = useState(220);
@@ -96,10 +98,16 @@ function AppLayout() {
               readOnly={liveInputPending}
             />
           </div>
-          {showTape && <TapeVisualization snapshot={liveTapeState} />}
+          {showTape && (
+            <TapeVisualization
+              snapshot={liveTapeState}
+              loopHighlightCells={loopHighlightCells}
+            />
+          )}
           <BrainfuckDisplay
             code={brainfuck}
             activeCharIndex={activeBfCharIndex}
+            loopHighlightRange={loopHighlightCharRange}
           />
           <OutputDisplay
             output={output}

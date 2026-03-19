@@ -3,11 +3,13 @@ import { useState } from "react";
 interface BrainfuckDisplayProps {
   code: string;
   activeCharIndex?: number; // index to highlight during playback; -1 or undefined = none
+  loopHighlightRange?: [number, number] | null; // [open, close] charIndex range to highlight
 }
 
 export function BrainfuckDisplay({
   code,
   activeCharIndex = -1,
+  loopHighlightRange = null,
 }: BrainfuckDisplayProps) {
   const [copied, setCopied] = useState(false);
 
@@ -37,22 +39,35 @@ export function BrainfuckDisplay({
       </div>
       {code ? (
         <pre className="code-block">
-          {code.split("").map((ch, i) => (
-            <span
-              key={i}
-              style={
-                i === activeCharIndex
-                  ? {
-                      background: "var(--accent2)",
-                      color: "var(--bg)",
-                      borderRadius: 2,
-                    }
-                  : undefined
-              }
-            >
-              {ch}
-            </span>
-          ))}
+          {code.split("").map((ch, i) => {
+            const isActive = i === activeCharIndex;
+            const isLoop =
+              !isActive &&
+              loopHighlightRange !== null &&
+              i >= loopHighlightRange[0] &&
+              i <= loopHighlightRange[1];
+            return (
+              <span
+                key={i}
+                style={
+                  isActive
+                    ? {
+                        background: "var(--accent2)",
+                        color: "var(--bg)",
+                        borderRadius: 2,
+                      }
+                    : isLoop
+                      ? {
+                          background: "rgba(22, 188, 213, 0.18)",
+                          borderRadius: 2,
+                        }
+                      : undefined
+                }
+              >
+                {ch}
+              </span>
+            );
+          })}
         </pre>
       ) : (
         <p className="placeholder">
