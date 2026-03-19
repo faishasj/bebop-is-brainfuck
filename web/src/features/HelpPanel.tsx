@@ -16,6 +16,7 @@ const TOC_SECTIONS = [
     label: "IDE controls",
     items: [
       { id: "help-piano-roll", label: "Piano roll" },
+      { id: "help-automation-lanes", label: "Automation lanes" },
       { id: "help-tracks", label: "Tracks" },
       { id: "help-execution-modes", label: "Execution modes" },
       { id: "help-play-scope", label: "Play scope" },
@@ -330,6 +331,89 @@ export function HelpPanel() {
               </li>
             </ul>
 
+            <h3 id="help-automation-lanes">Automation lanes</h3>
+            <p>
+              Click the <strong>Lanes</strong> button in the piano roll toolbar
+              to show or hide the automation lanes panel below the note grid.
+              Five lanes are available, each controlling a different parameter:
+            </p>
+            <table className="ide-overlay-table">
+              <thead>
+                <tr>
+                  <th>Lane</th>
+                  <th>What it controls</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <strong>Velocity</strong>
+                  </td>
+                  <td>
+                    Per-note volume (0–127). Affects Web Audio playback gain.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Attack</strong> (CC73)
+                  </td>
+                  <td>
+                    Note fade-in time (0–2 s). Affects Web Audio playback and is
+                    exported to MIDI.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Release</strong> (CC72)
+                  </td>
+                  <td>
+                    Note fade-out time (0–4 s). Affects Web Audio playback and
+                    is exported to MIDI.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Modulation</strong> (CC1)
+                  </td>
+                  <td>
+                    Standard MIDI modulation wheel (0–127). Exported to MIDI
+                    only.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Pitch Bend</strong>
+                  </td>
+                  <td>
+                    Pitch bend range (−8191–+8191). Bars above the centre line
+                    bend up, below bend down. Exported to MIDI only.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p>Interacting with lanes:</p>
+            <ul>
+              <li>
+                <strong>Velocity</strong> — bars appear automatically at each
+                note's beat position. <strong>Drag a bar up or down</strong> to
+                change that note's velocity.
+              </li>
+              <li>
+                <strong>Attack / Release / Modulation / Pitch Bend</strong> —
+                events are placed freely in time.{" "}
+                <strong>Click empty space</strong> to create a new event and
+                drag immediately to set its value.{" "}
+                <strong>Drag an existing bar</strong> to adjust its value.{" "}
+                <strong>Right-click a bar</strong> to delete it.
+              </li>
+            </ul>
+            <p className="ide-overlay-muted">
+              Attack and release values apply to the first event at or before
+              each note's beat position — later events override earlier ones. CC
+              and pitch bend events survive note edits; deleting a note does not
+              remove automation at that position.
+            </p>
+
             <h3 id="help-tracks">Tracks</h3>
             <ul>
               <li>
@@ -427,10 +511,6 @@ export function HelpPanel() {
               updates.
             </p>
             <ul>
-              <li>
-                <strong>Note velocity</strong> (attack/volume) is fixed and
-                cannot be edited per-note in the piano roll.
-              </li>
               <li>
                 One <strong>instrument</strong> per track.
               </li>
