@@ -139,6 +139,7 @@ State is split across three contexts. Keep concerns separated:
 - `player.stop()` stops all notes immediately.
 - Must be triggered from a user gesture (browser autoplay policy).
 - Instrument cache lives on the singleton AudioContext. Invalidated when context is closed/recreated.
+- Volume (CC7) scales per-note gain: `gain = (velocity / 127) * (volume / 127)`. When no volume events exist, gain is unscaled.
 - Pitch bend and modulation (CC1) are applied per-note via Web Audio's `detune` AudioParam on the source node. Pitch bend schedules value ramps; modulation connects an LFO oscillator through a gain node.
 
 #### MIDI Export Format

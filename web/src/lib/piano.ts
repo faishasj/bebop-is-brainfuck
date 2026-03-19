@@ -13,6 +13,7 @@ export const VELOCITY_LANE_BAR_WIDTH = 6; // px width per velocity/CC bar
 
 export const LANE_DEFS: LaneMeta[] = [
   { type: "velocity",  label: "velocity",   min: 1,     max: 127,  defaultValue: 100, color: "#fbbf24" },
+  { type: "volume",    label: "volume",     min: 0,     max: 127,  defaultValue: 100, color: "#22d3ee" },
   { type: "attack",    label: "attack",     min: 0,     max: 127,  defaultValue: 0,   color: "#34d399" },
   { type: "release",   label: "release",    min: 0,     max: 127,  defaultValue: 0,   color: "#818cf8" },
   { type: "mod",       label: "mod",        min: 0,     max: 127,  defaultValue: 0,   color: "#c084fc" },

@@ -335,7 +335,7 @@ export function HelpPanel() {
             <p>
               Click the <strong>Lanes</strong> button in the piano roll toolbar
               to show or hide the automation lanes panel below the note grid.
-              Five lanes are available, each controlling a different parameter:
+              Six lanes are available, each controlling a different parameter:
             </p>
             <table className="ide-overlay-table">
               <thead>
@@ -351,6 +351,16 @@ export function HelpPanel() {
                   </td>
                   <td>
                     Per-note volume (0–127). Affects Web Audio playback gain.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Volume</strong> (CC7)
+                  </td>
+                  <td>
+                    Track-level volume (0–127). Scales the gain of all notes on
+                    the track. Affects Web Audio playback and is exported to
+                    MIDI.
                   </td>
                 </tr>
                 <tr>
@@ -400,7 +410,7 @@ export function HelpPanel() {
                 change that note's velocity.
               </li>
               <li>
-                <strong>Attack / Release / Modulation / Pitch Bend</strong> —
+                <strong>Volume / Attack / Release / Modulation / Pitch Bend</strong> —
                 events are placed freely in time.{" "}
                 <strong>Click empty space</strong> to create a new event and
                 drag immediately to set its value.{" "}
@@ -409,7 +419,7 @@ export function HelpPanel() {
               </li>
             </ul>
             <p className="ide-overlay-muted">
-              Attack, release, modulation, and pitch bend values apply from the
+              Volume, attack, release, modulation, and pitch bend values apply from the
               last event at or before each note's beat position — later events
               override earlier ones. Changes during a note are smoothly
               interpolated. CC and pitch bend events survive note edits;

@@ -174,7 +174,10 @@ export async function playBeatNotes(
         const clippedDurationSec = note.durationBeats * secPerBeat - skippedSec;
         if (clippedDurationSec <= 0) continue;
 
-        const gain = note.velocity / 127;
+        // Apply volume (CC7) as a gain multiplier on top of per-note velocity.
+        const volumeRaw = ccEvents ? getLastCCBefore(ccEvents.volume, note.beatStart) : null;
+        const volumeScale = volumeRaw !== null ? volumeRaw / 127 : 1;
+        const gain = (note.velocity / 127) * volumeScale;
         // Apply attack/release from CC events (CC73/CC72) scaled to seconds.
         const attackRaw = ccEvents ? getLastCCBefore(ccEvents.attack, note.beatStart) : null;
         const releaseRaw = ccEvents ? getLastCCBefore(ccEvents.release, note.beatStart) : null;

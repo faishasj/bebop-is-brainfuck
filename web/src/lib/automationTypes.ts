@@ -1,7 +1,7 @@
 // ── Automation lane types ───────────────────────────────────────────────────
 // Pure types — no React, no UI imports.
 
-export type CCLaneType = "attack" | "release" | "mod" | "pitchbend";
+export type CCLaneType = "volume" | "attack" | "release" | "mod" | "pitchbend";
 export type LaneType = "velocity" | CCLaneType;
 
 // A single CC automation event at a beat position.
@@ -13,6 +13,7 @@ export interface CCEvent {
 
 // All CC event lanes for a single track.
 export interface TrackCCEvents {
+  volume: CCEvent[];    // CC7  — channel volume (gain multiplier during playback)
   attack: CCEvent[];    // CC73 — mapped to soundfont attack (0–2 s)
   release: CCEvent[];   // CC72 — mapped to soundfont release (0–4 s)
   mod: CCEvent[];       // CC1  — vibrato depth during playback
@@ -30,7 +31,7 @@ export interface LaneMeta {
 }
 
 export function emptyTrackCCEvents(): TrackCCEvents {
-  return { attack: [], release: [], mod: [], pitchbend: [] };
+  return { volume: [], attack: [], release: [], mod: [], pitchbend: [] };
 }
 
 // Return the value of the last event at or before `beat`, or null if none.

@@ -132,7 +132,7 @@ export function getTrackInstrument(
 // Convert a parsed MIDI track back into piano-roll BeatNote[] format.
 // Mirrors the note-pairing logic of playParsedMidiTrack.
 // Root note = lowest noteOn at absoluteTick === 0; returned separately (not in notes[]).
-// Also collects CC73/CC72/CC1/pitchBend events into ccEvents.
+// Also collects CC7/CC73/CC72/CC1/pitchBend events into ccEvents.
 // Returns null if the track is missing or has no root note.
 export function parsedMidiToRollNotes(
   parsedMidi: MidiData,
@@ -194,7 +194,8 @@ export function parsedMidiToRollNotes(
       const ct = (event as { controllerType: number; value: number }).controllerType;
       const val = (event as { controllerType: number; value: number }).value;
       const ccEvt: CCEvent = { id: crypto.randomUUID(), beat, value: val };
-      if (ct === 73) ccEvents.attack.push(ccEvt);
+      if (ct === 7) ccEvents.volume.push(ccEvt);
+      else if (ct === 73) ccEvents.attack.push(ccEvt);
       else if (ct === 72) ccEvents.release.push(ccEvt);
       else if (ct === 1) ccEvents.mod.push(ccEvt);
     } else if (event.type === "pitchBend") {
@@ -208,7 +209,7 @@ export function parsedMidiToRollNotes(
 }
 
 // Extract all notes from a track as beat-based BeatNotes (no root-note filtering).
-// Also collects CC73/CC72/CC1/pitchBend events into ccEvents.
+// Also collects CC7/CC73/CC72/CC1/pitchBend events into ccEvents.
 // Used for displaying and playing back non-program tracks.
 export function trackToBeatNotes(
   parsedMidi: MidiData,
@@ -251,7 +252,8 @@ export function trackToBeatNotes(
       const ct = (event as { controllerType: number; value: number }).controllerType;
       const val = (event as { controllerType: number; value: number }).value;
       const ccEvt: CCEvent = { id: crypto.randomUUID(), beat, value: val };
-      if (ct === 73) ccEvents.attack.push(ccEvt);
+      if (ct === 7) ccEvents.volume.push(ccEvt);
+      else if (ct === 73) ccEvents.attack.push(ccEvt);
       else if (ct === 72) ccEvents.release.push(ccEvt);
       else if (ct === 1) ccEvents.mod.push(ccEvt);
     } else if (event.type === "pitchBend") {
@@ -408,7 +410,7 @@ export function exportMidi(
 // Build the sorted delta-tick note events for a single track.
 // If isProgram, prepends the root note at tick 0 (required for BF transpile on re-import).
 // Always prepends a programChange event so the instrument survives export/import roundtrips.
-// If ccEvents is provided, controller (CC73/72/1) and pitchBend events are interleaved.
+// If ccEvents is provided, controller (CC7/73/72/1) and pitchBend events are interleaved.
 // Sort order at equal ticks: CC/pitchBend (priority 0) < noteOff (1) < noteOn (2).
 type RawEvent = { deltaTime: number; type: string; [key: string]: unknown };
 
@@ -459,6 +461,13 @@ function buildNoteEvents(
 
   // ── CC / pitchBend events ──────────────────────────────────────────────────
   if (ccEvents) {
+    for (const e of ccEvents.volume) {
+      absEvents.push({
+        absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
+        priority: 0,
+        raw: { deltaTime: 0, type: "controller", channel: 0, controllerType: 7, value: e.value },
+      });
+    }
     for (const e of ccEvents.attack) {
       absEvents.push({
         absoluteTick: Math.round(e.beat * TICKS_PER_BEAT),
