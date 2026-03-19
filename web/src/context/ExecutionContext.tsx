@@ -73,7 +73,8 @@ interface ExecutionContextValue {
 const ExecutionContext = createContext<ExecutionContextValue | null>(null);
 
 export function ExecutionProvider({ children }: { children: React.ReactNode }) {
-  const { scale, bpm, timeSig, rollRootNote, rootNoteDuration } = useComposition();
+  const { scale, bpm, timeSig, rollRootNote, rootNoteDuration } =
+    useComposition();
   const {
     rollNotes,
     editingNotes,
@@ -104,6 +105,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   const liveOutputQueueRef = useRef<string[]>([]);
   const liveOutputConsumedRef = useRef(0);
   const liveDotCommandsRef = useRef<NoteCommand[]>([]);
+  const liveOutputPerDotRef = useRef<number[]>([]);
   const liveCommaCommandsRef = useRef<NoteCommand[]>([]);
   const liveDotIdxRef = useRef(0);
   const liveCommaIdxRef = useRef(0);
@@ -114,6 +116,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
   const isPausedAtBreakpointRef = useRef(false);
   const noteCommandsRef = useRef<NoteCommand[]>([]);
   const liveTapeSnapshotsRef = useRef<TapeSnapshot[]>([]);
+  const visitedCharIndicesRef = useRef<Set<number>>(new Set());
+  const snapMapRef = useRef<Map<number, TapeSnapshot>>(new Map());
   const [liveTapeState, setLiveTapeState] = useState<TapeSnapshot | null>(null);
   const stdinInputRef = useRef<HTMLInputElement>(null);
 
@@ -206,6 +210,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     liveInputPendingRef.current = false;
     liveInterpreterRef.current = null;
     liveTapeSnapshotsRef.current = [];
+    visitedCharIndicesRef.current = new Set();
+    snapMapRef.current = new Map();
     setLiveTapeState(null);
     setIsPausedAtBreakpoint(false);
     isPausedAtBreakpointRef.current = false;
@@ -241,12 +247,14 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
         !liveInputPendingRef.current
       ) {
         const dots = liveDotCommandsRef.current;
+        const perDot = liveOutputPerDotRef.current;
         while (
           liveDotIdxRef.current < dots.length &&
           dots[liveDotIdxRef.current].beatStart <= beat &&
           liveOutputConsumedRef.current < liveOutputQueueRef.current.length
         ) {
-          liveOutputConsumedRef.current++;
+          const count = perDot[liveDotIdxRef.current] ?? 1;
+          liveOutputConsumedRef.current += count;
           liveDotIdxRef.current++;
         }
         setLiveDisplayedOutput(
@@ -255,9 +263,15 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
             .join(""),
         );
 
-        const snapIdx = liveOutputConsumedRef.current - 1;
-        if (snapIdx >= 0 && snapIdx < liveTapeSnapshotsRef.current.length) {
-          setLiveTapeState(liveTapeSnapshotsRef.current[snapIdx]);
+        const snaps = liveTapeSnapshotsRef.current;
+        const nc = noteCommandsRef.current;
+        let tapeIdx = -1;
+        for (let i = 0; i < nc.length; i++) {
+          if (nc[i].beatStart <= beat) tapeIdx = i;
+          else break;
+        }
+        if (tapeIdx >= 0 && tapeIdx < snaps.length) {
+          setLiveTapeState(snaps[tapeIdx]);
         }
 
         const commas = liveCommaCommandsRef.current;
@@ -287,6 +301,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
             setIsPlaying(false);
             setIsPausedAtBreakpoint(true);
             isPausedAtBreakpointRef.current = true;
+            console.log("[breakpoint] paused at beat=%f, bp=%f, playbackStart=%f", beat, bp, playbackStartBeatRef.current);
             return;
           }
         }
@@ -321,14 +336,25 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
         stopRaf();
         setIsPlaying(false);
         setCurrentBeat(0);
-        if (
-          liveMode &&
-          liveOutputQueueRef.current.length > liveOutputConsumedRef.current
-        ) {
-          setLiveDisplayedOutput(liveOutputQueueRef.current.join(""));
-          const snaps = liveTapeSnapshotsRef.current;
-          if (snaps.length > 0) {
-            setLiveTapeState(snaps[snaps.length - 1]);
+        if (liveMode) {
+          if (
+            liveOutputQueueRef.current.length > liveOutputConsumedRef.current
+          ) {
+            setLiveDisplayedOutput(liveOutputQueueRef.current.join(""));
+          }
+          // Show true final tape state when playback ends
+          const interp = liveInterpreterRef.current;
+          if (interp) {
+            const dp = interp.getDP();
+            const tape = interp.getTape();
+            const half = SNAPSHOT_WINDOW >> 1;
+            const start = Math.max(0, dp - half);
+            const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
+            setLiveTapeState({
+              dp,
+              windowStart: start,
+              cells: tape.slice(start, end),
+            });
           }
         }
       },
@@ -364,7 +390,11 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
         const id = Number(key);
         notesToPlay.push(
-          ...notes.map((n) => ({ ...n, instrument: getInstrument(id), trackId: id })),
+          ...notes.map((n) => ({
+            ...n,
+            instrument: getInstrument(id),
+            trackId: id,
+          })),
         );
       }
     }
@@ -434,20 +464,18 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     const cur = currentBeatRef.current;
     const cmds = noteCommandsRef.current;
     const next = cmds.find((nc) => nc.beatStart > cur);
-    if (!next) {
-      // No more program notes — finish
-      setIsPausedAtBreakpoint(false);
-      isPausedAtBreakpointRef.current = false;
-      setCurrentBeat(0);
-      setIsPlaying(false);
-      return;
-    }
-    const targetBeat = next.beatStart;
+    const isLastStep = !next;
+    const targetBeat = next ? next.beatStart : cur;
+
+    console.log("[stepBeat] cur=%f, targetBeat=%f, isLastStep=%s, totalCmds=%d",
+      cur, targetBeat, isLastStep, cmds.length);
+    console.log("[stepBeat] cmd beats:", cmds.map((c) => c.beatStart));
 
     // Move playhead to next program note beat
     setCurrentBeat(targetBeat);
 
-    // Play notes in the stepped range [cur, targetBeat]
+    // Play notes in the stepped range [cur, targetBeat)
+    // On the last step, include the note at cur: [cur, cur]
     const mode = playModeRef.current;
     const currentTracks = tracksRef.current;
     const currentTrackIndex = trackIndexRef.current;
@@ -473,69 +501,142 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
         const id = Number(key);
         notesToPlay.push(
-          ...notes.map((n) => ({ ...n, instrument: getInstrument(id), trackId: id })),
+          ...notes.map((n) => ({
+            ...n,
+            instrument: getInstrument(id),
+            trackId: id,
+          })),
         );
       }
     }
 
-    // Filter to notes that start within [cur, targetBeat)
-    const stepNotes = notesToPlay.filter(
-      (n) => n.beatStart >= cur && n.beatStart < targetBeat,
-    );
+    const stepNotes = isLastStep
+      ? notesToPlay.filter((n) => n.beatStart >= cur && n.beatStart <= cur)
+      : notesToPlay.filter(
+          (n) => n.beatStart >= cur && n.beatStart < targetBeat,
+        );
+
+    console.log("[stepBeat] notesToPlay=%d, stepNotes=%d, stepNoteBeats:",
+      notesToPlay.length, stepNotes.length, stepNotes.map((n) => n.beatStart));
 
     if (stepNotes.length > 0) {
       const instrumentNames = [
         ...new Set(stepNotes.map((n) => n.instrument ?? DEFAULT_INSTRUMENT)),
       ];
       await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
-      await playBeatNotes(stepNotes, bpmRef.current, cur, allTracksCCEventsRef.current);
+      await playBeatNotes(
+        stepNotes,
+        bpmRef.current,
+        cur,
+        allTracksCCEventsRef.current,
+      );
     }
 
     // Update live output/tape up to the new beat
     if (liveMode && liveInterpreterRef.current) {
       const dots = liveDotCommandsRef.current;
+      const perDot = liveOutputPerDotRef.current;
+      const dotIdxBefore = liveDotIdxRef.current;
+      const consumedBefore = liveOutputConsumedRef.current;
       while (
         liveDotIdxRef.current < dots.length &&
         dots[liveDotIdxRef.current].beatStart <= targetBeat &&
         liveOutputConsumedRef.current < liveOutputQueueRef.current.length
       ) {
-        liveOutputConsumedRef.current++;
+        const count = perDot[liveDotIdxRef.current] ?? 1;
+        liveOutputConsumedRef.current += count;
         liveDotIdxRef.current++;
       }
-      setLiveDisplayedOutput(
-        liveOutputQueueRef.current
-          .slice(0, liveOutputConsumedRef.current)
-          .join(""),
-      );
-      const snapIdx = liveOutputConsumedRef.current - 1;
-      if (snapIdx >= 0 && snapIdx < liveTapeSnapshotsRef.current.length) {
-        setLiveTapeState(liveTapeSnapshotsRef.current[snapIdx]);
+      const displayed = liveOutputQueueRef.current
+        .slice(0, liveOutputConsumedRef.current)
+        .join("");
+      setLiveDisplayedOutput(displayed);
+      console.log("[stepBeat] output: dotIdx %d→%d, consumed %d→%d, displayed=%s, totalDots=%d, totalQueue=%d, perDot=%s",
+        dotIdxBefore, liveDotIdxRef.current,
+        consumedBefore, liveOutputConsumedRef.current,
+        JSON.stringify(displayed),
+        dots.length, liveOutputQueueRef.current.length,
+        JSON.stringify(perDot));
+      if (liveDotIdxRef.current < dots.length) {
+        console.log("[stepBeat] next dot beat:", dots[liveDotIdxRef.current].beatStart);
       }
+      const snaps = liveTapeSnapshotsRef.current;
+      const nc = noteCommandsRef.current;
+      let tapeIdx = -1;
+      for (let i = 0; i < nc.length; i++) {
+        if (nc[i].beatStart <= targetBeat) tapeIdx = i;
+        else break;
+      }
+      if (tapeIdx >= 0 && tapeIdx < snaps.length) {
+        setLiveTapeState(snaps[tapeIdx]);
+      }
+      console.log("[stepBeat] tapeIdx=%d, snapsLen=%d", tapeIdx, snaps.length);
+    }
+
+    // After playing the last note, finish
+    if (isLastStep) {
+      console.log("[stepBeat] isLastStep — resetting session");
+      setIsPausedAtBreakpoint(false);
+      isPausedAtBreakpointRef.current = false;
+      setCurrentBeat(0);
+      setIsPlaying(false);
     }
   }
 
   // ── Live interpretation helpers ───────────────────────────────────────────
-  function drainUntilInputOrEnd(): "input" | "done" {
-    const liveInterpreter = liveInterpreterRef.current;
-    if (!liveInterpreter) return "done";
+  function captureSnapshot(interp: StepInterpreter): TapeSnapshot {
+    const dp = interp.getDP();
+    const tape = interp.getTape();
+    const half = SNAPSHOT_WINDOW >> 1;
+    const start = Math.max(0, dp - half);
+    const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
+    return { dp, windowStart: start, cells: tape.slice(start, end) };
+  }
+
+  function drainAndSnapshot(): "input" | "done" {
+    const interp = liveInterpreterRef.current;
+    if (!interp) return "done";
+    const visited = visitedCharIndicesRef.current;
+    const snapMap = snapMapRef.current;
+    const outputCountPerCharIndex = new Map<number, number>();
+
     while (true) {
-      const r = liveInterpreter.next();
+      const ip = interp.getIP();
+      const isFirstVisit = !visited.has(ip);
+      const r = interp.stepSingle();
+
+      // Snapshot after execution on first visit to each charIndex
+      if (isFirstVisit && (r === null || r?.type === "output")) {
+        visited.add(ip);
+        snapMap.set(ip, captureSnapshot(interp));
+      }
+
+      if (r === null) continue;
+
       if (r.type === "output") {
         liveOutputQueueRef.current.push(r.char);
-        const dp = liveInterpreter.getDP();
-        const tape = liveInterpreter.getTape();
-        const half = SNAPSHOT_WINDOW >> 1;
-        const start = Math.max(0, dp - half);
-        const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
-        liveTapeSnapshotsRef.current.push({
-          dp,
-          windowStart: start,
-          cells: tape.slice(start, end),
-        });
-      } else {
-        if (r.type === "done" && r.error) setError(r.error);
-        return r.type as "input" | "done";
+        outputCountPerCharIndex.set(
+          ip,
+          (outputCountPerCharIndex.get(ip) ?? 0) + 1,
+        );
+        continue;
       }
+
+      if (r.type === "done" && r.error) setError(r.error);
+
+      // Build per-noteCommand snapshot array
+      const cmds = noteCommandsRef.current;
+      const fallback = captureSnapshot(interp);
+      liveTapeSnapshotsRef.current = cmds.map(
+        (c) => snapMap.get(c.charIndex) ?? fallback,
+      );
+
+      // Build per-dot output count (how many chars each `.` note produces)
+      liveOutputPerDotRef.current = liveDotCommandsRef.current.map(
+        (d) => outputCountPerCharIndex.get(d.charIndex) ?? 1,
+      );
+
+      return r.type as "input" | "done";
     }
   }
 
@@ -545,7 +646,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     liveInputPendingRef.current = false;
     liveCommaIdxRef.current++;
     liveInterpreterRef.current?.provideInput(ch);
-    drainUntilInputOrEnd();
+    drainAndSnapshot();
     handlePlay(playModeRef.current, currentBeatRef.current);
   }
 
@@ -588,9 +689,16 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       liveOutputQueueRef.current = [];
       liveOutputConsumedRef.current = 0;
       liveDotIdxRef.current = 0;
+      liveOutputPerDotRef.current = [];
       liveCommaIdxRef.current = 0;
       liveTapeSnapshotsRef.current = [];
-      setLiveTapeState(null);
+      visitedCharIndicesRef.current = new Set();
+      snapMapRef.current = new Map();
+      setLiveTapeState({
+        dp: 0,
+        windowStart: 0,
+        cells: new Uint8Array(SNAPSHOT_WINDOW),
+      });
 
       liveDotCommandsRef.current = noteCommands.filter(
         (c) => brainfuck[c.charIndex] === ".",
@@ -605,19 +713,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       liveInterpreterRef.current = stepInterpreter;
-      drainUntilInputOrEnd();
-      if (liveTapeSnapshotsRef.current.length === 0) {
-        const dp = stepInterpreter.getDP();
-        const tape = stepInterpreter.getTape();
-        const half = SNAPSHOT_WINDOW >> 1;
-        const start = Math.max(0, dp - half);
-        const end = Math.min(tape.length, start + SNAPSHOT_WINDOW);
-        setLiveTapeState({
-          dp,
-          windowStart: start,
-          cells: tape.slice(start, end),
-        });
-      }
+      drainAndSnapshot();
       handlePlay(mode, 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -643,6 +739,8 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     setHasRun(false);
     liveInterpreterRef.current = null;
     liveTapeSnapshotsRef.current = [];
+    visitedCharIndicesRef.current = new Set();
+    snapMapRef.current = new Map();
     setLiveTapeState(null);
     setIsPausedAtBreakpoint(false);
     isPausedAtBreakpointRef.current = false;

@@ -100,7 +100,7 @@ web/src/
 │   ├── scales.ts          SCALE constant + computeSemitone()
 │   ├── transpiler.ts      MIDI → Brainfuck (parseMidi, transpile, fetchMidi)
 │   ├── interpreter.ts     Batch Brainfuck executor
-│   ├── stepInterpreter.ts Step-by-step executor (for live/debug mode)
+│   ├── stepInterpreter.ts Step-by-step executor (next() for IO-batched, stepSingle() for per-instruction)
 │   ├── player.ts          Audio engine (singleton AudioContext + instrument cache)
 │   ├── midiExport.ts      notesToParsedMidi(), exportMidi(), instrument → GM number
 │   └── piano.ts           Piano roll constants (BEAT_WIDTH, ROW_HEIGHT, note names, command colors)
@@ -121,7 +121,7 @@ State is split across three contexts. Keep concerns separated:
 ### Run Modes (`ExecutionContext`)
 
 - **`batch`**: Full transpile + execute synchronously. Output shown all at once.
-- **`live`**: Step interpreter runs in sync with audio playback. Outputs appear as `.` notes are reached. Pauses for `,` input. Breakpoints work here.
+- **`live`**: Step interpreter runs eagerly at start via `drainAndSnapshot()` (using `stepSingle()`), collecting output and a tape snapshot per noteCommand. During playback, outputs appear as `.` note beats are reached; tape state updates as any noteCommand beat is reached. Pauses for `,` input. Breakpoints and F10 step-through work here.
 - **`notes`**: No interpretation — audio playback only.
 
 ### Critical Implementation Details
@@ -160,6 +160,22 @@ State is split across three contexts. Keep concerns separated:
 - Implemented with ref-based stacks (`pastRef`, `futureRef`) in `TracksContext` — not useState — to avoid race conditions.
 - Capped at 50 entries per stack.
 - Always call `updateNotesWithHistory()` (not direct state setters) when making editable changes to notes.
+
+#### Live Tape Snapshots (`ExecutionContext`)
+
+- `StepInterpreter` has two stepping modes: `next()` loops until IO (`.`/`,`) or end; `stepSingle()` executes exactly one BF instruction and returns `null` for non-IO commands or a `StepResult` for IO/done.
+- `drainAndSnapshot()` uses `stepSingle()` to run the interpreter eagerly. On the **first visit** to each `charIndex` (IP position), it captures a `TapeSnapshot` (dp + 512-cell window). This keeps snapshot count bounded to O(noteCommands.length) even with loops.
+- After drain completes, snapshots are assembled into a per-noteCommand array: `liveTapeSnapshotsRef.current[i]` = snapshot for `noteCommands[i]`.
+- `drainAndSnapshot()` also counts how many output chars each `.` charIndex produces across all executions (including loop iterations) and stores these counts in `liveOutputPerDotRef`. This is critical because a `.` inside a BF loop executes multiple times per note, so the number of output chars can exceed the number of `.` noteCommands.
+- The rAF loop and `stepBeat` find the latest noteCommand whose `beatStart <= currentBeat` and display that snapshot — so the tape visualizer updates on every note, not just output commands.
+- Output consumption advances by `liveOutputPerDotRef[dotIdx]` chars per `.` noteCommand beat reached (not by 1), so all output chars are consumed even when loops cause a single `.` note to produce multiple characters.
+- `schedulePlaybackEnd` shows the interpreter's true final tape state (from `getDP()`/`getTape()` directly), not the last snapshot.
+
+#### Step-Through (`stepBeat`)
+
+- Finds the next noteCommand after the current beat. Plays notes in the range `[cur, targetBeat)` and moves the playhead to `targetBeat`.
+- On the **last step** (no next noteCommand), plays the note at `cur` and then resets the session. This ensures the final program note is always audible.
+- Also advances live output consumption and tape state to `targetBeat`.
 
 #### Tape Size
 
