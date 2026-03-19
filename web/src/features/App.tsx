@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AccessibilityProvider } from "../context/AccessibilityContext.js";
 import { CompositionProvider } from "../context/CompositionContext.js";
 import { TracksProvider, useTracks } from "../context/TracksContext.js";
 import {
@@ -11,6 +12,7 @@ import { BrainfuckDisplay } from "./BrainfuckDisplay.js";
 import { OutputDisplay } from "./OutputDisplay.js";
 import { TapeVisualization } from "./TapeVisualization.js";
 import { PianoRoll } from "./PianoRoll.js";
+import { AccessibilityPanel } from "./AccessibilityPanel.js";
 
 function AppLayout() {
   const {
@@ -30,19 +32,8 @@ function AppLayout() {
   } = useExecution();
 
   const [bottomHeight, setBottomHeight] = useState(220);
-  const [editorMode, setEditorMode] = useState<"add" | "delete">("add");
+  const [a11yOpen, setA11yOpen] = useState(false);
   const showTape = runMode === "live";
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "a" || e.key === "A") setEditorMode("add");
-      else if (e.key === "d" || e.key === "D") setEditorMode("delete");
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   function handleDividerMouseDown(e: React.MouseEvent) {
     e.preventDefault();
@@ -66,10 +57,10 @@ function AppLayout() {
 
   return (
     <div className="app">
-      <IdeToolbar />
+      <IdeToolbar onOpenA11y={() => setA11yOpen(true)} />
       <div className="ide-body">
         <div className="ide-piano-section">
-          <PianoRoll editorMode={editorMode} setEditorMode={setEditorMode} />
+          <PianoRoll />
         </div>
         <div
           className="ide-resize-handle"
@@ -119,6 +110,7 @@ function AppLayout() {
           />
         </div>
       </div>
+      {a11yOpen && <AccessibilityPanel onClose={() => setA11yOpen(false)} />}
     </div>
   );
 }
@@ -153,13 +145,15 @@ function SampleLoader() {
 
 export function App() {
   return (
-    <CompositionProvider>
-      <TracksProvider>
-        <ExecutionProvider>
-          <SampleLoader />
-          <AppLayout />
-        </ExecutionProvider>
-      </TracksProvider>
-    </CompositionProvider>
+    <AccessibilityProvider>
+      <CompositionProvider>
+        <TracksProvider>
+          <ExecutionProvider>
+            <SampleLoader />
+            <AppLayout />
+          </ExecutionProvider>
+        </TracksProvider>
+      </CompositionProvider>
+    </AccessibilityProvider>
   );
 }

@@ -147,7 +147,9 @@ export function TapeVisualization({
         <h2 className="tape-heading">Memory</h2>
         <span className="tape-pointer">ptr: {dp}</span>
         <form className="tape-goto" onSubmit={handleGotoSubmit}>
+          <label className="sr-only" htmlFor="tape-goto-input">Jump to cell</label>
           <input
+            id="tape-goto-input"
             className="tape-goto-input"
             type="text"
             inputMode="numeric"
@@ -158,16 +160,22 @@ export function TapeVisualization({
           <button type="submit" className="tape-goto-btn">go</button>
         </form>
         {!isFollowing && (
-          <button className="tape-follow-btn" onClick={() => setIsFollowing(true)}>
+          <button
+            className="tape-follow-btn"
+            onClick={() => setIsFollowing(true)}
+            aria-label="Follow data pointer"
+          >
             follow ptr
           </button>
         )}
-        <div className="tape-fmt">
+        <div className="tape-fmt" role="group" aria-label="Display format">
           {FORMATS.map((f) => (
             <button
               key={f}
               className={`tape-fmt-btn${f === fmt ? " tape-fmt-btn--active" : ""}`}
               onClick={() => setFmt(f)}
+              aria-pressed={f === fmt}
+              aria-label={`Display as ${f === "dec" ? "decimal" : f === "hex" ? "hexadecimal" : "ASCII"}`}
             >
               {f}
             </button>
@@ -197,6 +205,10 @@ export function TapeVisualization({
             </div>
           );
         })}
+      </div>
+      {/* Screen reader announcement for data pointer movement */}
+      <div className="sr-only" aria-live="polite">
+        {snapshot ? `Cell ${dp}: value ${snapshot.cells[dp - snapshot.windowStart] ?? 0}` : ""}
       </div>
     </div>
   );

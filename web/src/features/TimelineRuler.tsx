@@ -14,7 +14,6 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
     scrub: onScrub,
     breakpoints,
     toggleBreakpoint,
-    isPausedAtBreakpoint,
   } = useExecution();
 
   const beatsPerMeasure = timeSig.num;

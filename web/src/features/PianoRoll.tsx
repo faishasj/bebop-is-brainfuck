@@ -183,6 +183,7 @@ export function PianoRoll() {
             onClick={undo}
             disabled={!canUndo}
             title={canUndo ? `Undo ${undoLabel}` : "Nothing to undo"}
+            aria-label={canUndo ? `Undo ${undoLabel}` : "Undo"}
           >
             <div className="pr-toolbar-btn-label">
               <Icon name="undo" />
@@ -195,6 +196,7 @@ export function PianoRoll() {
             onClick={redo}
             disabled={!canRedo}
             title={canRedo ? `Redo ${redoLabel}` : "Nothing to redo"}
+            aria-label={canRedo ? `Redo ${redoLabel}` : "Redo"}
           >
             <div className="pr-toolbar-btn-label">
               <Icon name="redo" />
@@ -207,6 +209,7 @@ export function PianoRoll() {
             className={`pr-toolbar-btn${editorMode === "add" ? " pr-toolbar-btn--active" : ""}`}
             onClick={() => setEditorMode("add")}
             title="Add mode: click to place or preview notes"
+            aria-pressed={editorMode === "add"}
           >
             <div className="pr-toolbar-btn-label">
               <Icon name="pencil" />
@@ -218,6 +221,7 @@ export function PianoRoll() {
             className={`pr-toolbar-btn${editorMode === "delete" ? " pr-toolbar-btn--active" : ""}`}
             onClick={() => setEditorMode("delete")}
             title="Delete mode: click to remove notes"
+            aria-pressed={editorMode === "delete"}
           >
             <div className="pr-toolbar-btn-label">
               <Icon name="trash" />
@@ -244,6 +248,7 @@ export function PianoRoll() {
             onChange={onGridSnapChange}
             size="sm"
             menuStyle={{ right: 0, left: "auto" }}
+            label="Grid snap"
           />
         </div>
       </div>

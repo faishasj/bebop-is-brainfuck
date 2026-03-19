@@ -43,7 +43,11 @@ const TIME_SIG_DEN_OPTIONS = [2, 4, 8, 16].map((d) => ({
   label: String(d),
 }));
 
-export function IdeToolbar() {
+interface IdeToolbarProps {
+  onOpenA11y?: () => void;
+}
+
+export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
   const {
     scale,
     setScale: onScaleChange,
@@ -132,6 +136,10 @@ export function IdeToolbar() {
   const [sampleOpen, setSampleOpen] = useState(false);
   const [playModeOpen, setPlayModeOpen] = useState(false);
   const [runModeOpen, setRunModeOpen] = useState(false);
+  const [runModeFocused, setRunModeFocused] = useState(0);
+  const [playModeFocused, setPlayModeFocused] = useState(0);
+  const runModeTriggerRef = useRef<HTMLButtonElement>(null);
+  const playModeChevronRef = useRef<HTMLButtonElement>(null);
   const [deleteDialog, setDeleteDialog] = useState<TrackMeta | null>(null);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -166,6 +174,9 @@ export function IdeToolbar() {
     batch: "Run first, then play audio",
   };
 
+  const RUN_MODES: RUN_MODE[] = ["notes", "live", "batch"];
+  const PLAY_MODES: PLAY_MODE[] = ["all", "program", "current"];
+
   useClickOutside(sampleMenuRef, () => setSampleOpen(false), sampleOpen);
   useClickOutside(playModeMenuRef, () => setPlayModeOpen(false), playModeOpen);
   useClickOutside(runModeMenuRef, () => setRunModeOpen(false), runModeOpen);
@@ -173,6 +184,90 @@ export function IdeToolbar() {
   useEffect(() => {
     if (isPausedAtBreakpoint) setActiveTab("debug");
   }, [isPausedAtBreakpoint]);
+
+  function handleRunModeKeyDown(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        if (!runModeOpen) {
+          setRunModeFocused(RUN_MODES.indexOf(runMode));
+          setRunModeOpen(true);
+        } else {
+          setRunModeFocused((i) => Math.min(i + 1, RUN_MODES.length - 1));
+        }
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        if (runModeOpen) {
+          setRunModeFocused((i) => Math.max(i - 1, 0));
+        }
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (runModeOpen) {
+          onRunModeChange(RUN_MODES[runModeFocused]);
+          setRunModeOpen(false);
+          runModeTriggerRef.current?.focus();
+        } else {
+          setRunModeFocused(RUN_MODES.indexOf(runMode));
+          setRunModeOpen(true);
+        }
+        break;
+      case "Escape":
+        if (runModeOpen) {
+          e.preventDefault();
+          setRunModeOpen(false);
+          runModeTriggerRef.current?.focus();
+        }
+        break;
+      case "Tab":
+        if (runModeOpen) setRunModeOpen(false);
+        break;
+    }
+  }
+
+  function handlePlayModeKeyDown(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        if (!playModeOpen) {
+          setPlayModeFocused(PLAY_MODES.indexOf(playMode));
+          setPlayModeOpen(true);
+        } else {
+          setPlayModeFocused((i) => Math.min(i + 1, PLAY_MODES.length - 1));
+        }
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        if (playModeOpen) {
+          setPlayModeFocused((i) => Math.max(i - 1, 0));
+        }
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (playModeOpen) {
+          onPlayModeChange(PLAY_MODES[playModeFocused]);
+          setPlayModeOpen(false);
+          playModeChevronRef.current?.focus();
+        } else {
+          setPlayModeFocused(PLAY_MODES.indexOf(playMode));
+          setPlayModeOpen(true);
+        }
+        break;
+      case "Escape":
+        if (playModeOpen) {
+          e.preventDefault();
+          setPlayModeOpen(false);
+          playModeChevronRef.current?.focus();
+        }
+        break;
+      case "Tab":
+        if (playModeOpen) setPlayModeOpen(false);
+        break;
+    }
+  }
 
   async function handleFile(file: File) {
     const buffer = await file.arrayBuffer();
@@ -217,13 +312,25 @@ export function IdeToolbar() {
       {/* Title bar */}
       <div className="ide-titlebar">
         <strong>🎷 Bebop is Brainfuck</strong>
-        <a
-          href="https://github.com/faishasj/bebop-is-brainfuck"
-          target="_blank"
-          rel="noreferrer"
-        >
-          GitHub ↗
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          {onOpenA11y && (
+            <button
+              className="a11y-trigger-btn"
+              onClick={onOpenA11y}
+              aria-label="Accessibility settings"
+              title="Accessibility settings"
+            >
+              A11y
+            </button>
+          )}
+          <a
+            href="https://github.com/faishasj/bebop-is-brainfuck"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub ↗
+          </a>
+        </div>
       </div>
 
       {/* Tab row */}
@@ -302,10 +409,18 @@ export function IdeToolbar() {
           <span className="run-mode-label">Mode</span>
           <div className={`run-mode-dropdown${currentBeat > 0 ? " run-mode-dropdown--hidden-mobile" : ""}`} ref={runModeMenuRef}>
             <button
+              ref={runModeTriggerRef}
               className="run-mode-trigger"
-              onClick={() => setRunModeOpen((o) => !o)}
+              onClick={() => {
+                setRunModeFocused(RUN_MODES.indexOf(runMode));
+                setRunModeOpen((o) => !o);
+              }}
+              onKeyDown={handleRunModeKeyDown}
               disabled={isPlaying || currentBeat > 0}
               title="Execution mode"
+              aria-label="Execution mode"
+              aria-haspopup="listbox"
+              aria-expanded={runModeOpen}
               style={{ width: "7rem" }}
             >
               <span className="run-mode-trigger__icon"><Icon name={RUN_MODE_ICONS[runMode]} /></span>
@@ -313,15 +428,18 @@ export function IdeToolbar() {
               <Icon name="chevron-down" />
             </button>
             {runModeOpen && (
-              <div className="run-mode-menu ide-dropdown">
-                {(["notes", "live", "batch"] as const).map((mode) => (
-                  <div
+              <ul className="run-mode-menu ide-dropdown" role="listbox" aria-label="Execution mode">
+                {RUN_MODES.map((mode, i) => (
+                  <li
                     key={mode}
-                    className={`run-mode-item ide-dropdown-item${runMode === mode ? " ide-dropdown-item--active" : ""}`}
+                    role="option"
+                    aria-selected={runMode === mode}
+                    className={`run-mode-item ide-dropdown-item${runMode === mode ? " ide-dropdown-item--active" : ""}${i === runModeFocused ? " ide-dropdown-item--focused" : ""}`}
                     onClick={() => {
                       onRunModeChange(mode);
                       setRunModeOpen(false);
                     }}
+                    onMouseEnter={() => setRunModeFocused(i)}
                   >
                     <span className="run-mode-item__name">
                       {RUN_MODE_LABELS[mode]}
@@ -329,9 +447,9 @@ export function IdeToolbar() {
                     <span className="run-mode-item__hint">
                       {RUN_MODE_HINTS[mode]}
                     </span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
           {/* Run / Pause controls */}
@@ -372,29 +490,40 @@ export function IdeToolbar() {
                 <kbd className="ide-toolbar-kbd">SPACE</kbd>
               </button>
               <button
+                ref={playModeChevronRef}
                 className="play-btn play-split-btn__chevron"
-                onClick={() => setPlayModeOpen((o) => !o)}
+                onClick={() => {
+                  setPlayModeFocused(PLAY_MODES.indexOf(playMode));
+                  setPlayModeOpen((o) => !o);
+                }}
+                onKeyDown={handlePlayModeKeyDown}
                 disabled={!hasNotes || liveInputPending}
                 title="Select tracks"
+                aria-label="Select tracks to play"
+                aria-haspopup="listbox"
+                aria-expanded={playModeOpen}
               >
                 <Icon name="chevron-down" />
               </button>
               {playModeOpen && (
-                <div className="play-split-dropdown">
-                  {(["all", "program", "current"] as const).map((mode) => (
-                    <div
+                <ul className="play-split-dropdown" role="listbox" aria-label="Play mode">
+                  {PLAY_MODES.map((mode, i) => (
+                    <li
                       key={mode}
-                      className={`ide-dropdown-item${playMode === mode ? " ide-dropdown-item--active" : ""}`}
+                      role="option"
+                      aria-selected={playMode === mode}
+                      className={`ide-dropdown-item${playMode === mode ? " ide-dropdown-item--active" : ""}${i === playModeFocused ? " ide-dropdown-item--focused" : ""}`}
                       onClick={() => {
                         onPlayModeChange(mode);
                         setPlayModeOpen(false);
                       }}
+                      onMouseEnter={() => setPlayModeFocused(i)}
                     >
                       {playMode === mode ? "▶ " : "\u00a0\u00a0\u00a0"}
                       {MODE_HINTS[mode]}
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           )}
@@ -503,6 +632,7 @@ export function IdeToolbar() {
                       value={editingTrackIndex}
                       onChange={onEditingTrackChange}
                       onAdd={onAddTrack}
+                      label="Track"
                       onDelete={(t) => {
                         if (trackHasNotes[t.id]) {
                           setDeleteDialog(t);
@@ -532,6 +662,7 @@ export function IdeToolbar() {
                   options={ROOT_NOTE_OPTIONS}
                   onChange={onRootNoteChange}
                   style={{ width: 68 }}
+                  label="Root note"
                 />
                 <label>Scale</label>
                 <CustomSelect
@@ -539,6 +670,7 @@ export function IdeToolbar() {
                   options={SCALES}
                   onChange={onScaleChange}
                   style={{ width: 142 }}
+                  label="Scale"
                 />
               </div>
               <div className="ide-ribbon-group__title">Interpretation</div>
@@ -567,6 +699,7 @@ export function IdeToolbar() {
                   options={TIME_SIG_NUM_OPTIONS}
                   onChange={(n) => onTimeSigChange({ ...timeSig, num: n })}
                   style={{ width: 52 }}
+                  label="Time signature numerator"
                 />
                 <span>/</span>
                 <CustomSelect
@@ -574,6 +707,7 @@ export function IdeToolbar() {
                   options={TIME_SIG_DEN_OPTIONS}
                   onChange={(d) => onTimeSigChange({ ...timeSig, den: d })}
                   style={{ width: 52 }}
+                  label="Time signature denominator"
                 />
               </div>
               <div className="ide-ribbon-group__title">Playback</div>
@@ -587,6 +721,7 @@ export function IdeToolbar() {
                   onChange={onTrackInstrumentChange}
                   columns={2}
                   style={{ width: 148 }}
+                  label="Instrument"
                 />
                 <button
                   className="ide-ribbon-btn ide-ribbon-btn--danger"

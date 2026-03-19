@@ -25,7 +25,11 @@ export function BrainfuckDisplay({
         {code && (
           <div className="panel-meta">
             <span className="char-count">{code.length} chars</span>
-            <button className="copy-btn" onClick={handleCopy}>
+            <button
+              className="copy-btn"
+              onClick={handleCopy}
+              aria-label={copied ? "Copied!" : "Copy Brainfuck to clipboard"}
+            >
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
