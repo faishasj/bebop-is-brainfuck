@@ -315,7 +315,7 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
         <strong>🎷 Bebop is Brainfuck</strong>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           {onOpenA11y && (
-            <Tooltip content="Accessibility settings">
+            <Tooltip content="Accessibility settings" placement="below-left">
               <button
                 className="a11y-trigger-btn"
                 onClick={onOpenA11y}
@@ -411,7 +411,7 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
             className={`run-mode-dropdown${currentBeat > 0 ? " run-mode-dropdown--hidden-mobile" : ""}`}
             ref={runModeMenuRef}
           >
-            <Tooltip content="Execution mode" placement="below">
+            <Tooltip content="Execution mode" placement="below-left">
               <button
                 ref={runModeTriggerRef}
                 className="run-mode-trigger"
@@ -507,7 +507,7 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                 </span>
                 <kbd className="ide-toolbar-kbd">SPACE</kbd>
               </button>
-              <Tooltip content="Select tracks" placement="below">
+              <Tooltip content="Select tracks" placement="below-left">
                 <button
                   ref={playModeChevronRef}
                   className="play-btn play-split-btn__chevron"
@@ -551,7 +551,7 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
             </div>
           )}
           {currentBeat > 0 && (
-            <Tooltip content="Reset playhead to beat 0" placement="below">
+            <Tooltip content="Reset playhead to beat 0" placement="below-left">
               <button
                 className="play-btn"
                 onClick={() => {
