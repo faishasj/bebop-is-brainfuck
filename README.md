@@ -35,7 +35,7 @@ B2 supports three:
 Each note is mapped to a Brainfuck command by its semitone distance from the root. Notes at unmapped intervals are silently ignored.
 
 | Semitones | Major | Minor | Dominant |
-|-----------|-------|-------|----------|
+| --------- | ----- | ----- | -------- |
 | 0         | `>`   | `>`   | `>`      |
 | 2         | `<`   | `<`   | `<`      |
 | 3         | —     | `+`   | —        |
@@ -75,4 +75,12 @@ npm install
 npm run dev   # Dev server on localhost:5173
 ```
 
-Features a piano roll editor, audio playback via Web Audio API, a step debugger with breakpoints, and MIDI import/export.
+**Features:**
+
+- **Piano roll editor** — place, move, resize, and multi-select notes; colour-coded by Brainfuck command
+- **Multiple tracks** — one starred program track plus any number of accompaniment tracks, each with its own instrument
+- **Automation lanes** — per-track velocity, attack (CC73), release (CC72), modulation (CC1), and pitch bend lanes; affects Web Audio playback and MIDI export
+- **Three run modes** — _Notes only_ (audio only), _Live_ (interpreter steps in sync with playback), _Batch_ (full run before playback)
+- **Step debugger** — set breakpoints on the timeline ruler, step note-by-note with F10, inspect the Brainfuck tape and code position in real time
+- **MIDI import/export** — round-trips scale metadata, CC automation, and per-track instruments
+- **Undo/redo** — full history for note and automation edits
