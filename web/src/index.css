@@ -43,6 +43,35 @@ input[type="number"] {
   --glow-c-sm: 0 0 4px rgba(22, 188, 213, 0.45);
 }
 
+/* ── Custom scrollbar ──────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent2);
+  box-shadow: var(--glow-c-sm);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--bg);
+}
+
 html,
 body {
   height: 100%;
