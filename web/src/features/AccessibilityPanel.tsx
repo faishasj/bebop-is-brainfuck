@@ -83,6 +83,13 @@ export function AccessibilityPanel({ onClose }: AccessibilityPanelProps) {
             checked={prefs.dyslexiaFont}
             onToggle={() => toggle("dyslexiaFont")}
           />
+          <ToggleRow
+            id="a11y-hl"
+            label="Hint labels"
+            description="Show tooltips on buttons and interactive controls"
+            checked={prefs.hintLabels}
+            onToggle={() => toggle("hintLabels")}
+          />
         </div>
       </div>
     </div>

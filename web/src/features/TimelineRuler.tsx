@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAccessibility } from "../context/AccessibilityContext.js";
 import { useComposition } from "../context/CompositionContext.js";
 import { useExecution } from "../context/ExecutionContext.js";
 import { BEAT_WIDTH, KEYS_WIDTH } from "../lib/piano.js";
@@ -19,6 +20,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
 
   const beatsPerMeasure = timeSig.num;
 
+  const { prefs } = useAccessibility();
   const isScrubbing = useRef(false);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
@@ -231,7 +233,7 @@ export function TimelineRuler({ scrollRef }: TimelineRulerProps) {
         </div>
       </div>
     </div>
-    {tooltip !== null &&
+    {prefs.hintLabels && tooltip !== null &&
       createPortal(
         <div
           className="ide-tooltip"

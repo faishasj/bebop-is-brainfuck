@@ -4,6 +4,7 @@ interface AccessibilityPrefs {
   highContrast: boolean;
   reduceMotion: boolean;
   dyslexiaFont: boolean;
+  hintLabels: boolean;
 }
 
 interface AccessibilityContextValue {
@@ -19,6 +20,7 @@ const DATA_ATTRS: Record<keyof AccessibilityPrefs, string> = {
   highContrast: "data-high-contrast",
   reduceMotion: "data-reduce-motion",
   dyslexiaFont: "data-dyslexia-font",
+  hintLabels: "data-hint-labels",
 };
 
 function loadPrefs(): AccessibilityPrefs {
@@ -27,6 +29,7 @@ function loadPrefs(): AccessibilityPrefs {
     highContrast: false,
     reduceMotion: prefersReducedMotion,
     dyslexiaFont: false,
+    hintLabels: false,
   };
 
   try {

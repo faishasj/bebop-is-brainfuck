@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useAccessibility } from "../context/AccessibilityContext.js";
 
 type TooltipPlacement = "right" | "below" | "left" | "below-left";
 
@@ -33,6 +34,7 @@ export function Tooltip({
   placement = "right",
   children,
 }: TooltipProps) {
+  const { prefs } = useAccessibility();
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 
   return (
@@ -43,7 +45,7 @@ export function Tooltip({
       onMouseLeave={() => setPos(null)}
     >
       {children}
-      {pos !== null &&
+      {prefs.hintLabels && pos !== null &&
         createPortal(
           <div
             className="ide-tooltip"
