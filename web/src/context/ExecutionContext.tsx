@@ -351,18 +351,20 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       notesToPlay = rollNotesRef.current.map((n) => ({
         ...n,
         instrument: getInstrument(currentTrackIndex),
+        trackId: currentTrackIndex,
       }));
     } else if (mode === "current") {
       notesToPlay = editingNotesRef.current.map((n) => ({
         ...n,
         instrument: getInstrument(currentEditingTrackIndex),
+        trackId: currentEditingTrackIndex,
       }));
     } else {
       notesToPlay = [];
       for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
         const id = Number(key);
         notesToPlay.push(
-          ...notes.map((n) => ({ ...n, instrument: getInstrument(id) })),
+          ...notes.map((n) => ({ ...n, instrument: getInstrument(id), trackId: id })),
         );
       }
     }
@@ -376,6 +378,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       durationBeats: 1,
       velocity: 100,
       instrument: getInstrument(currentTrackIndex),
+      trackId: currentTrackIndex,
     };
     const includesProgram =
       mode !== "current" || currentEditingTrackIndex === currentTrackIndex;
@@ -393,7 +396,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       playNotes,
       bpmRef.current,
       fromBeat,
-      allTracksCCEventsRef.current[editingTrackIndexRef.current],
+      allTracksCCEventsRef.current,
     );
     setIsPlaying(true);
     startRaf();
@@ -457,18 +460,20 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
       notesToPlay = rollNotesRef.current.map((n) => ({
         ...n,
         instrument: getInstrument(currentTrackIndex),
+        trackId: currentTrackIndex,
       }));
     } else if (mode === "current") {
       notesToPlay = editingNotesRef.current.map((n) => ({
         ...n,
         instrument: getInstrument(currentEditingTrackIndex),
+        trackId: currentEditingTrackIndex,
       }));
     } else {
       notesToPlay = [];
       for (const [key, notes] of Object.entries(allTracksNotesRef.current)) {
         const id = Number(key);
         notesToPlay.push(
-          ...notes.map((n) => ({ ...n, instrument: getInstrument(id) })),
+          ...notes.map((n) => ({ ...n, instrument: getInstrument(id), trackId: id })),
         );
       }
     }
@@ -483,7 +488,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
         ...new Set(stepNotes.map((n) => n.instrument ?? DEFAULT_INSTRUMENT)),
       ];
       await Promise.all(instrumentNames.map((name) => loadInstrument(name)));
-      await playBeatNotes(stepNotes, bpmRef.current, cur, allTracksCCEventsRef.current[editingTrackIndexRef.current]);
+      await playBeatNotes(stepNotes, bpmRef.current, cur, allTracksCCEventsRef.current);
     }
 
     // Update live output/tape up to the new beat

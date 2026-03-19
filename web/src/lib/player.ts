@@ -62,6 +62,7 @@ export interface BeatNote {
   durationBeats: number;
   velocity: number;
   instrument?: string;
+  trackId?: number;
 }
 
 // ── Pitch bend / modulation constants ────────────────────────────────────────
@@ -135,14 +136,14 @@ function applyPitchAndMod(
 
 // Play a sequence of beat-based notes at the given BPM.
 // startBeat allows playback to begin at an arbitrary position.
-// ccEvents: optional per-track automation — attack/release shape the soundfont
-// envelope; mod and pitch bend are applied via Web Audio detune automation.
+// ccEventsMap: optional per-track automation keyed by trackId. Each note's
+// trackId is used to look up its CC events (volume, attack, release, mod, pitchbend).
 // Returns the remaining duration in seconds from startBeat so the caller can set a completion timer.
 export async function playBeatNotes(
   notes: BeatNote[],
   bpm: number,
   startBeat = 0,
-  ccEvents?: TrackCCEvents,
+  ccEventsMap?: Record<number, TrackCCEvents>,
 ): Promise<{ totalDurationSec: number }> {
   const ac = getAudioContext();
   const secPerBeat = 60 / bpm;
@@ -173,6 +174,11 @@ export async function playBeatNotes(
         const skippedSec = Math.max(0, startBeat - note.beatStart) * secPerBeat;
         const clippedDurationSec = note.durationBeats * secPerBeat - skippedSec;
         if (clippedDurationSec <= 0) continue;
+
+        // Look up CC events for this note's track
+        const ccEvents = note.trackId != null && ccEventsMap
+          ? ccEventsMap[note.trackId]
+          : undefined;
 
         // Apply volume (CC7) as a gain multiplier on top of per-note velocity.
         const volumeRaw = ccEvents ? getLastCCBefore(ccEvents.volume, note.beatStart) : null;
