@@ -196,6 +196,9 @@ body {
   border-bottom: 2px solid var(--accent);
   text-shadow: 0 0 10px rgba(232, 121, 249, 0.7);
 }
+.ide-tab-icon {
+  display: none;
+}
 
 .ide-filename {
   position: absolute;
@@ -1045,6 +1048,11 @@ code {
   opacity: 0.35;
   cursor: default;
 }
+.play-btn-icon {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+}
 
 /* ── Play split button ── */
 .play-split-btn {
@@ -1274,6 +1282,11 @@ code {
 .run-mode-trigger:disabled {
   opacity: 0.35;
   cursor: default;
+}
+.run-mode-trigger__icon {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
 }
 .run-mode-menu {
   min-width: 190px;
@@ -1606,32 +1619,46 @@ code {
   .run-mode-label {
     display: none;
   }
+  /* Abbreviate tab labels so everything fits on one row */
   .ide-tab-btn {
-    padding: 0.45rem 0.65rem;
-    font-size: 0.75rem;
+    padding: 0.45rem 0.75rem;
   }
-  /* Tab row — wrap so actions fall to a second line */
-  .ide-tabrow {
-    flex-wrap: wrap;
+  .ide-tab-label {
+    display: none;
+  }
+  .ide-tab-icon {
+    display: inline-flex;
+    align-items: center;
   }
   .ide-tabrow-actions {
-    width: 100%;
-    margin-left: 0;
-    border-top: 1px solid var(--border);
     gap: 0.25rem;
-    padding: 0.2rem 0.25rem;
-    justify-content: flex-end;
+    padding: 0.25rem 0.15rem;
   }
+  /* Run mode trigger — icon only */
   .run-mode-trigger {
-    font-size: 0.72rem;
-    padding: 0.28rem 0.5rem;
+    width: auto !important;
+    padding: 0.28rem 0.4rem;
+    gap: 0.25rem;
   }
-  /* Override inline style={{ width: "13rem" }} on play/pause buttons */
+  .run-mode-trigger__text {
+    display: none;
+  }
+  .run-mode-trigger__icon {
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Play buttons — icon only */
   .play-btn,
   .play-split-btn {
     width: auto !important;
-    padding: 0.38rem 0.65rem;
-    font-size: 0.78rem;
+    padding: 0.38rem 0.5rem;
+  }
+  .play-btn-label {
+    display: none;
+  }
+  .play-btn-icon {
+    display: inline-flex;
+    align-items: center;
   }
   .play-btn kbd {
     display: none;

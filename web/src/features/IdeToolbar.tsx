@@ -154,6 +154,12 @@ export function IdeToolbar() {
     batch: "Batch",
   };
 
+  const RUN_MODE_ICONS = {
+    notes: "music",
+    live: "activity",
+    batch: "zap",
+  } as const;
+
   const RUN_MODE_HINTS: Record<RUN_MODE, string> = {
     notes: "Just hear the music",
     live: "Output revealed beat by beat",
@@ -226,31 +232,46 @@ export function IdeToolbar() {
           className={`ide-tab-btn ${activeTab === "file" ? "active" : ""}`}
           onClick={() => setActiveTab("file")}
         >
-          File
+          <span className="ide-tab-icon">
+            <Icon name="file" />
+          </span>
+          <span className="ide-tab-label">File</span>
         </button>
         <button
           className={`ide-tab-btn ${activeTab === "compose" ? "active" : ""}`}
           onClick={() => setActiveTab("compose")}
         >
-          Compose
+          <span className="ide-tab-icon">
+            <Icon name="music" />
+          </span>
+          <span className="ide-tab-label">Compose</span>
         </button>
         <button
           className={`ide-tab-btn ${activeTab === "debug" ? "active" : ""}`}
           onClick={() => setActiveTab("debug")}
         >
-          Debug
+          <span className="ide-tab-icon">
+            <Icon name="bug" />
+          </span>
+          <span className="ide-tab-label">Debug</span>
         </button>
         <button
           className={`ide-tab-btn ${overlayTab === "help" ? "active" : ""}`}
           onClick={() => setOverlayTab((v) => (v === "help" ? null : "help"))}
         >
-          Help
+          <span className="ide-tab-icon">
+            <Icon name="help-circle" />
+          </span>
+          <span className="ide-tab-label">Help</span>
         </button>
         <button
           className={`ide-tab-btn ${overlayTab === "about" ? "active" : ""}`}
           onClick={() => setOverlayTab((v) => (v === "about" ? null : "about"))}
         >
-          About
+          <span className="ide-tab-icon">
+            <Icon name="info-circle" />
+          </span>
+          <span className="ide-tab-label">About</span>
         </button>
         <InlineEdit
           value={displayFileName}
@@ -287,7 +308,8 @@ export function IdeToolbar() {
               title="Execution mode"
               style={{ width: "7rem" }}
             >
-              <span>{RUN_MODE_LABELS[runMode]}</span>
+              <span className="run-mode-trigger__icon"><Icon name={RUN_MODE_ICONS[runMode]} /></span>
+              <span className="run-mode-trigger__text">{RUN_MODE_LABELS[runMode]}</span>
               <Icon name="chevron-down" />
             </button>
             {runModeOpen && (
@@ -319,7 +341,8 @@ export function IdeToolbar() {
               onClick={onContinue}
               style={{ width: "13rem" }}
             >
-              <div>▶ Continue</div>
+              <span className="play-btn-icon"><Icon name="play" /></span>
+              <span className="play-btn-label">▶ Continue</span>
               <kbd>SPACE</kbd>
             </button>
           ) : isPlaying ? (
@@ -328,7 +351,8 @@ export function IdeToolbar() {
               onClick={onStop}
               style={{ width: "13rem" }}
             >
-              <div>⏸ Pause</div>
+              <span className="play-btn-icon"><Icon name="pause" /></span>
+              <span className="play-btn-label">⏸ Pause</span>
               <kbd>SPACE</kbd>
             </button>
           ) : (
@@ -339,11 +363,12 @@ export function IdeToolbar() {
                 disabled={!hasNotes || liveInputPending}
                 style={{ width: "13rem" }}
               >
-                <div>
+                <span className="play-btn-icon"><Icon name="play" /></span>
+                <span className="play-btn-label">
                   {canResume
                     ? `▶ Resume ${MODE_LABELS[playMode]}`
                     : `▶ Run ${MODE_LABELS[playMode]}`}
-                </div>
+                </span>
                 <kbd className="ide-toolbar-kbd">SPACE</kbd>
               </button>
               <button
@@ -382,7 +407,8 @@ export function IdeToolbar() {
               }}
               title="Reset playhead to beat 0"
             >
-              ⏮ Reset
+              <span className="play-btn-icon"><Icon name="skip-back" /></span>
+              <span className="play-btn-label">⏮ Reset</span>
             </button>
           )}
         </div>
