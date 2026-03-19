@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { TrackMeta } from "../context/TracksContext.js";
 import { useClickOutside } from "../hooks/useClickOutside.js";
 import { Icon } from "./Icon.js";
+import { Tooltip } from "./Tooltip.js";
 
 interface TrackSelectProps {
   tracks: TrackMeta[];
@@ -52,7 +53,9 @@ export function TrackSelect({
 
   useEffect(() => {
     if (!open || focusedIndex < 0) return;
-    const item = listRef.current?.children[focusedIndex] as HTMLElement | undefined;
+    const item = listRef.current?.children[focusedIndex] as
+      | HTMLElement
+      | undefined;
     item?.scrollIntoView({ block: "nearest" });
   }, [focusedIndex, open]);
 
@@ -120,7 +123,11 @@ export function TrackSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        aria-activedescendant={open && focusedIndex >= 0 ? `${instanceId}-opt-${focusedIndex}` : undefined}
+        aria-activedescendant={
+          open && focusedIndex >= 0
+            ? `${instanceId}-opt-${focusedIndex}`
+            : undefined
+        }
         aria-label={label}
       >
         <span>{triggerLabel}</span>
@@ -167,35 +174,36 @@ export function TrackSelect({
                 )}
               </span>
               {t.id !== programTrackId && (
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--text-muted)",
-                    padding: "0 2px",
-                    lineHeight: 1,
-                    fontSize: 14,
-                    flexShrink: 0,
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(t);
-                    setOpen(false);
-                  }}
-                  aria-label={`Delete track ${t.name}`}
-                  title={`Delete ${t.name}`}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color =
-                      "var(--error-text)")
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.color =
-                      "var(--text-muted)")
-                  }
-                >
-                  ×
-                </button>
+                <Tooltip content={`Delete ${t.name}`}>
+                  <button
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      padding: "0 2px",
+                      lineHeight: 1,
+                      fontSize: 14,
+                      flexShrink: 0,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(t);
+                      setOpen(false);
+                    }}
+                    aria-label={`Delete track ${t.name}`}
+                    onMouseEnter={(e) =>
+                      ((e.currentTarget as HTMLButtonElement).style.color =
+                        "var(--error-text)")
+                    }
+                    onMouseLeave={(e) =>
+                      ((e.currentTarget as HTMLButtonElement).style.color =
+                        "var(--text-muted)")
+                    }
+                  >
+                    ×
+                  </button>
+                </Tooltip>
               )}
             </li>
           ))}

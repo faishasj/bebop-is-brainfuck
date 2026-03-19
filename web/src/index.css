@@ -33,7 +33,8 @@ input[type="number"] {
   --error-bg: #3b0f0f;
   --error-border: #7f1d1d;
   --error-text: #fca5a5;
-  --font-body: "Josefin Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body:
+    "Josefin Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
   --radius: 3px;
   --radius-lg: 6px;
@@ -1841,6 +1842,22 @@ code {
   pointer-events: none;
 }
 
+/* Shared tooltip — used for drag feedback, hover hints, and command descriptions */
+.ide-tooltip {
+  position: fixed;
+  z-index: 1000;
+  padding: 3px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--accent2);
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: var(--glow-c-sm);
+}
+
 /* ── Piano roll context menu ── */
 .pr-context-menu {
   position: fixed;
@@ -2022,7 +2039,9 @@ code {
   height: 16px;
   border-radius: 50%;
   background: var(--text-muted);
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .a11y-switch--on .a11y-switch-thumb {

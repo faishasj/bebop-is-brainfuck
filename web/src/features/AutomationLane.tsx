@@ -1,13 +1,18 @@
 import { useRef, useEffect, useState } from "react";
 import { type CCEvent, type LaneMeta } from "../lib/automationTypes.js";
 import { type BeatNote } from "../lib/player.js";
-import { BEAT_WIDTH, LANE_HEIGHT, VELOCITY_LANE_BAR_WIDTH, KEYS_WIDTH } from "../lib/piano.js";
+import {
+  BEAT_WIDTH,
+  LANE_HEIGHT,
+  VELOCITY_LANE_BAR_WIDTH,
+  KEYS_WIDTH,
+} from "../lib/piano.js";
 import { useComposition } from "../context/CompositionContext.js";
 
 interface AutomationLaneProps {
   meta: LaneMeta;
-  notes: (BeatNote & { id: string })[];  // all editing notes — used by velocity lane
-  ccEvents: CCEvent[];                    // used by CC lanes
+  notes: (BeatNote & { id: string })[]; // all editing notes — used by velocity lane
+  ccEvents: CCEvent[]; // used by CC lanes
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onVelocityChange: (noteId: string, velocity: number, commit: boolean) => void;
   onCCChange: (events: CCEvent[], label: string, commit: boolean) => void;
@@ -37,6 +42,7 @@ export function AutomationLane({
     startValue: number;
   } | null>(null);
   const draftRef = useRef<{ id: string; value: number } | null>(null);
+  const tooltipPosRef = useRef({ x: 0, y: 0 });
   // Tracks a newly created CC event being dragged before its first commit.
   const pendingNewEventRef = useRef<CCEvent | null>(null);
   const ccEventsRef = useRef(ccEvents);
@@ -44,6 +50,11 @@ export function AutomationLane({
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const [, forceUpdate] = useState(0);
+  const [hoverTooltip, setHoverTooltip] = useState<{
+    value: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // ── Scroll sync ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -68,9 +79,13 @@ export function AutomationLane({
       const range = meta.max - meta.min;
       const newValue = Math.min(
         meta.max,
-        Math.max(meta.min, Math.round(startValue + (delta * range) / BAR_INNER_HEIGHT)),
+        Math.max(
+          meta.min,
+          Math.round(startValue + (delta * range) / BAR_INNER_HEIGHT),
+        ),
       );
       draftRef.current = { id: dragRef.current.id, value: newValue };
+      tooltipPosRef.current = { x: e.clientX, y: e.clientY };
       forceUpdate((v) => v + 1);
     }
 
@@ -78,7 +93,9 @@ export function AutomationLane({
       if (!dragRef.current) return;
       const id = dragRef.current.id;
       const finalValue =
-        draftRef.current?.id === id ? draftRef.current.value : dragRef.current.startValue;
+        draftRef.current?.id === id
+          ? draftRef.current.value
+          : dragRef.current.startValue;
 
       if (dragRef.current.type === "velocity") {
         onVelocityChange(id, finalValue, true);
@@ -142,9 +159,22 @@ export function AutomationLane({
   ) {
     e.preventDefault();
     e.stopPropagation();
+    setHoverTooltip(null);
+    tooltipPosRef.current = { x: e.clientX, y: e.clientY };
     dragRef.current = { type, id, startY: e.clientY, startValue: currentValue };
     draftRef.current = { id, value: currentValue };
     forceUpdate((v) => v + 1);
+  }
+
+  // ── Hover tooltip handlers ──────────────────────────────────────────────────
+  function handleBarHover(e: React.MouseEvent, val: number) {
+    if (dragRef.current) return;
+    setHoverTooltip({ value: val, x: e.clientX, y: e.clientY });
+  }
+
+  function handleBarHoverEnd() {
+    if (dragRef.current) return;
+    setHoverTooltip(null);
   }
 
   // ── Mouse down on canvas background (CC lanes only: create new event) ──────
@@ -166,9 +196,19 @@ export function AutomationLane({
     const snappedBeat = Math.max(0, Math.round(rawBeat / gridSnap) * gridSnap);
     const value = computeValueFromY(y);
 
-    const newEvt: CCEvent = { id: crypto.randomUUID(), beat: snappedBeat, value };
+    const newEvt: CCEvent = {
+      id: crypto.randomUUID(),
+      beat: snappedBeat,
+      value,
+    };
     pendingNewEventRef.current = newEvt;
-    dragRef.current = { type: "cc", id: newEvt.id, startY: e.clientY, startValue: value };
+    tooltipPosRef.current = { x: e.clientX, y: e.clientY };
+    dragRef.current = {
+      type: "cc",
+      id: newEvt.id,
+      startY: e.clientY,
+      startValue: value,
+    };
     draftRef.current = { id: newEvt.id, value };
     forceUpdate((v) => v + 1);
   }
@@ -184,39 +224,39 @@ export function AutomationLane({
   const canvasWidth = totalBeats * BEAT_WIDTH;
   const draft = draftRef.current;
   const pendingNew = pendingNewEventRef.current;
-
-  // Velocity bars
-  const velocityBars = meta.type === "velocity"
-    ? notes.map((note) => {
-        const velocity = draft?.id === note.id ? draft.value : note.velocity;
-        const { top, height } = getBarGeometry(velocity);
-        const x = note.beatStart * BEAT_WIDTH - BAR_WIDTH / 2;
-        const isActive = draft?.id === note.id;
-        return (
-          <div
-            key={note.id}
-            className={`auto-lane__bar${isActive ? " auto-lane__bar--active" : ""}`}
-            style={{
-              left: x,
-              width: BAR_WIDTH,
-              top,
-              height,
-              background: meta.color,
-            }}
-            onMouseDown={(e) => handleBarMouseDown(e, note.id, velocity, "velocity")}
-            title={`velocity: ${velocity}`}
-          />
-        );
-      })
-    : null;
+  const velocityBars =
+    meta.type === "velocity"
+      ? notes.map((note) => {
+          const velocity = draft?.id === note.id ? draft.value : note.velocity;
+          const { top, height } = getBarGeometry(velocity);
+          const x = note.beatStart * BEAT_WIDTH - BAR_WIDTH / 2;
+          const isActive = draft?.id === note.id;
+          return (
+            <div
+              key={note.id}
+              className={`auto-lane__bar${isActive ? " auto-lane__bar--active" : ""}`}
+              style={{
+                left: x,
+                width: BAR_WIDTH,
+                top,
+                height,
+                background: meta.color,
+              }}
+              onMouseDown={(e) =>
+                handleBarMouseDown(e, note.id, velocity, "velocity")
+              }
+              onMouseEnter={(e) => handleBarHover(e, velocity)}
+              onMouseMove={(e) => handleBarHover(e, velocity)}
+              onMouseLeave={handleBarHoverEnd}
+            />
+          );
+        })
+      : null;
 
   // CC bars (existing events + pending new event)
   const allDisplayEvents: CCEvent[] =
     meta.type !== "velocity"
-      ? [
-          ...ccEvents,
-          ...(pendingNew !== null ? [pendingNew] : []),
-        ]
+      ? [...ccEvents, ...(pendingNew !== null ? [pendingNew] : [])]
       : [];
 
   const ccBars =
@@ -239,32 +279,57 @@ export function AutomationLane({
                 background: meta.color,
               }}
               onMouseDown={(e) => handleBarMouseDown(e, ev.id, value, "cc")}
-              onContextMenu={(e) => !isPending && handleBarContextMenu(e, ev.id)}
-              title={`${meta.label}: ${value}`}
+              onMouseEnter={(e) => handleBarHover(e, value)}
+              onMouseMove={(e) => handleBarHover(e, value)}
+              onMouseLeave={handleBarHoverEnd}
+              onContextMenu={(e) =>
+                !isPending && handleBarContextMenu(e, ev.id)
+              }
             />
           );
         })
       : null;
 
   return (
-    <div className="auto-lane">
-      <div className="auto-lane__header" style={{ width: KEYS_WIDTH }}>
-        <span className="auto-lane__label">{meta.label}</span>
-      </div>
-      <div className="auto-lane__canvas-wrapper" ref={containerRef}>
-        <div
-          className="auto-lane__canvas"
-          ref={canvasRef}
-          style={{ width: canvasWidth }}
-          onMouseDown={handleCanvasMouseDown}
-        >
-          {meta.type === "pitchbend" && (
-            <div className="auto-lane__center-line" />
-          )}
-          {velocityBars}
-          {ccBars}
+    <>
+      <div className="auto-lane">
+        <div className="auto-lane__header" style={{ width: KEYS_WIDTH }}>
+          <span className="auto-lane__label">{meta.label}</span>
+        </div>
+        <div className="auto-lane__canvas-wrapper" ref={containerRef}>
+          <div
+            className="auto-lane__canvas"
+            ref={canvasRef}
+            style={{ width: canvasWidth }}
+            onMouseDown={handleCanvasMouseDown}
+          >
+            {meta.type === "pitchbend" && (
+              <div className="auto-lane__center-line" />
+            )}
+            {velocityBars}
+            {ccBars}
+          </div>
         </div>
       </div>
-    </div>
+      {(draft !== null || hoverTooltip !== null) &&
+        (() => {
+          const tip =
+            draft !== null
+              ? {
+                  value: draft.value,
+                  x: tooltipPosRef.current.x,
+                  y: tooltipPosRef.current.y,
+                }
+              : hoverTooltip!;
+          return (
+            <div
+              className="ide-tooltip"
+              style={{ left: tip.x + 14, top: tip.y - 32 }}
+            >
+              {meta.label}: {tip.value}
+            </div>
+          );
+        })()}
+    </>
   );
 }

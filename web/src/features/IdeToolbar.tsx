@@ -13,6 +13,7 @@ import { useExecution } from "../context/ExecutionContext.js";
 import { useClickOutside } from "../hooks/useClickOutside.js";
 import { Icon } from "../ui-kit/Icon.js";
 import { ConfirmDialog } from "../ui-kit/ConfirmDialog.js";
+import { Tooltip } from "../ui-kit/Tooltip.js";
 import { InlineEdit } from "../ui-kit/InlineEdit.js";
 import { NOTE_NAMES } from "../lib/piano.js";
 import { TrackSelect } from "../ui-kit/TrackSelect.js";
@@ -314,14 +315,15 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
         <strong>🎷 Bebop is Brainfuck</strong>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           {onOpenA11y && (
-            <button
-              className="a11y-trigger-btn"
-              onClick={onOpenA11y}
-              aria-label="Accessibility settings"
-              title="Accessibility settings"
-            >
-              A11y
-            </button>
+            <Tooltip content="Accessibility settings">
+              <button
+                className="a11y-trigger-btn"
+                onClick={onOpenA11y}
+                aria-label="Accessibility settings"
+              >
+                A11y
+              </button>
+            </Tooltip>
           )}
           <a
             href="https://github.com/faishasj/bebop-is-brainfuck"
@@ -394,41 +396,51 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
           selectOnOpen="stem"
         >
           {({ onActivate }) => (
-            <span
-              className="ide-filename"
-              onClick={onActivate}
-              title="Click to rename"
-            >
-              {displayFileName}
-            </span>
+            <Tooltip content="Click to rename">
+              <span className="ide-filename" onClick={onActivate}>
+                {displayFileName}
+              </span>
+            </Tooltip>
           )}
         </InlineEdit>
 
         <div className="ide-tabrow-actions">
           {/* Run mode picker */}
           <span className="run-mode-label">Mode</span>
-          <div className={`run-mode-dropdown${currentBeat > 0 ? " run-mode-dropdown--hidden-mobile" : ""}`} ref={runModeMenuRef}>
-            <button
-              ref={runModeTriggerRef}
-              className="run-mode-trigger"
-              onClick={() => {
-                setRunModeFocused(RUN_MODES.indexOf(runMode));
-                setRunModeOpen((o) => !o);
-              }}
-              onKeyDown={handleRunModeKeyDown}
-              disabled={isPlaying || currentBeat > 0}
-              title="Execution mode"
-              aria-label="Execution mode"
-              aria-haspopup="listbox"
-              aria-expanded={runModeOpen}
-              style={{ width: "7rem" }}
-            >
-              <span className="run-mode-trigger__icon"><Icon name={RUN_MODE_ICONS[runMode]} /></span>
-              <span className="run-mode-trigger__text">{RUN_MODE_LABELS[runMode]}</span>
-              <Icon name="chevron-down" />
-            </button>
+          <div
+            className={`run-mode-dropdown${currentBeat > 0 ? " run-mode-dropdown--hidden-mobile" : ""}`}
+            ref={runModeMenuRef}
+          >
+            <Tooltip content="Execution mode" placement="below">
+              <button
+                ref={runModeTriggerRef}
+                className="run-mode-trigger"
+                onClick={() => {
+                  setRunModeFocused(RUN_MODES.indexOf(runMode));
+                  setRunModeOpen((o) => !o);
+                }}
+                onKeyDown={handleRunModeKeyDown}
+                disabled={isPlaying || currentBeat > 0}
+                aria-label="Execution mode"
+                aria-haspopup="listbox"
+                aria-expanded={runModeOpen}
+                style={{ width: "7rem" }}
+              >
+                <span className="run-mode-trigger__icon">
+                  <Icon name={RUN_MODE_ICONS[runMode]} />
+                </span>
+                <span className="run-mode-trigger__text">
+                  {RUN_MODE_LABELS[runMode]}
+                </span>
+                <Icon name="chevron-down" />
+              </button>
+            </Tooltip>
             {runModeOpen && (
-              <ul className="run-mode-menu ide-dropdown" role="listbox" aria-label="Execution mode">
+              <ul
+                className="run-mode-menu ide-dropdown"
+                role="listbox"
+                aria-label="Execution mode"
+              >
                 {RUN_MODES.map((mode, i) => (
                   <li
                     key={mode}
@@ -459,7 +471,9 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
               onClick={onContinue}
               style={{ width: "13rem" }}
             >
-              <span className="play-btn-icon"><Icon name="play" /></span>
+              <span className="play-btn-icon">
+                <Icon name="play" />
+              </span>
               <span className="play-btn-label">▶ Continue</span>
               <kbd>SPACE</kbd>
             </button>
@@ -469,7 +483,9 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
               onClick={onStop}
               style={{ width: "13rem" }}
             >
-              <span className="play-btn-icon"><Icon name="pause" /></span>
+              <span className="play-btn-icon">
+                <Icon name="pause" />
+              </span>
               <span className="play-btn-label">⏸ Pause</span>
               <kbd>SPACE</kbd>
             </button>
@@ -481,7 +497,9 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                 disabled={!hasNotes || liveInputPending}
                 style={{ width: "13rem" }}
               >
-                <span className="play-btn-icon"><Icon name="play" /></span>
+                <span className="play-btn-icon">
+                  <Icon name="play" />
+                </span>
                 <span className="play-btn-label">
                   {canResume
                     ? `▶ Resume ${MODE_LABELS[playMode]}`
@@ -489,24 +507,29 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                 </span>
                 <kbd className="ide-toolbar-kbd">SPACE</kbd>
               </button>
-              <button
-                ref={playModeChevronRef}
-                className="play-btn play-split-btn__chevron"
-                onClick={() => {
-                  setPlayModeFocused(PLAY_MODES.indexOf(playMode));
-                  setPlayModeOpen((o) => !o);
-                }}
-                onKeyDown={handlePlayModeKeyDown}
-                disabled={!hasNotes || liveInputPending}
-                title="Select tracks"
-                aria-label="Select tracks to play"
-                aria-haspopup="listbox"
-                aria-expanded={playModeOpen}
-              >
-                <Icon name="chevron-down" />
-              </button>
+              <Tooltip content="Select tracks" placement="below">
+                <button
+                  ref={playModeChevronRef}
+                  className="play-btn play-split-btn__chevron"
+                  onClick={() => {
+                    setPlayModeFocused(PLAY_MODES.indexOf(playMode));
+                    setPlayModeOpen((o) => !o);
+                  }}
+                  onKeyDown={handlePlayModeKeyDown}
+                  disabled={!hasNotes || liveInputPending}
+                  aria-label="Select tracks to play"
+                  aria-haspopup="listbox"
+                  aria-expanded={playModeOpen}
+                >
+                  <Icon name="chevron-down" />
+                </button>
+              </Tooltip>
               {playModeOpen && (
-                <ul className="play-split-dropdown" role="listbox" aria-label="Play mode">
+                <ul
+                  className="play-split-dropdown"
+                  role="listbox"
+                  aria-label="Play mode"
+                >
                   {PLAY_MODES.map((mode, i) => (
                     <li
                       key={mode}
@@ -528,17 +551,20 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
             </div>
           )}
           {currentBeat > 0 && (
-            <button
-              className="play-btn"
-              onClick={() => {
-                onStop();
-                onResetPlayhead();
-              }}
-              title="Reset playhead to beat 0"
-            >
-              <span className="play-btn-icon"><Icon name="skip-back" /></span>
-              <span className="play-btn-label">⏮ Reset</span>
-            </button>
+            <Tooltip content="Reset playhead to beat 0" placement="below">
+              <button
+                className="play-btn"
+                onClick={() => {
+                  onStop();
+                  onResetPlayhead();
+                }}
+              >
+                <span className="play-btn-icon">
+                  <Icon name="skip-back" />
+                </span>
+                <span className="play-btn-label">⏮ Reset</span>
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -642,14 +668,17 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                       }}
                     />
                   )}
-                  <button
-                    className="ide-ribbon-btn"
-                    onClick={renamingTrack ? commitRename : startRename}
-                    title={renamingTrack ? "Confirm rename" : "Rename track"}
-                    style={{ padding: "0.28rem 6px", minWidth: 0 }}
+                  <Tooltip
+                    content={renamingTrack ? "Confirm rename" : "Rename track"}
                   >
-                    <Icon name={renamingTrack ? "check" : "pencil"} />
-                  </button>
+                    <button
+                      className="ide-ribbon-btn"
+                      onClick={renamingTrack ? commitRename : startRename}
+                      style={{ padding: "0.28rem 6px", minWidth: 0 }}
+                    >
+                      <Icon name={renamingTrack ? "check" : "pencil"} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               <div className="ide-ribbon-group__title">Tracks</div>
@@ -723,15 +752,16 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
                   style={{ width: 148 }}
                   label="Instrument"
                 />
-                <button
-                  className="ide-ribbon-btn ide-ribbon-btn--danger"
-                  onClick={() => setClearDialogOpen(true)}
-                  disabled={!(trackHasNotes[editingTrackIndex] ?? false)}
-                  title="Clear current track"
-                >
-                  <Icon name="trash" />
-                  <div>Clear notes</div>
-                </button>
+                <Tooltip content="Clear current track">
+                  <button
+                    className="ide-ribbon-btn ide-ribbon-btn--danger"
+                    onClick={() => setClearDialogOpen(true)}
+                    disabled={!(trackHasNotes[editingTrackIndex] ?? false)}
+                  >
+                    <Icon name="trash" />
+                    <div>Clear notes</div>
+                  </button>
+                </Tooltip>
               </div>
               <div className="ide-ribbon-group__title">Track controls</div>
             </div>
@@ -742,35 +772,38 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
           <>
             <div className="ide-ribbon-group">
               <div className="ide-ribbon-group__controls">
-                <button
-                  className="ide-ribbon-btn"
-                  onClick={onContinue}
-                  disabled={!isPausedAtBreakpoint}
-                  title="Continue execution (SPACE)"
-                >
-                  ▶ Continue
-                </button>
-                <button
-                  className="ide-ribbon-btn"
-                  onClick={onStepBeat}
-                  disabled={!isPausedAtBreakpoint}
-                  title="Step to next program note (F10)"
-                >
-                  ⏭ Step
-                </button>
+                <Tooltip content="Continue execution (SPACE)">
+                  <button
+                    className="ide-ribbon-btn"
+                    onClick={onContinue}
+                    disabled={!isPausedAtBreakpoint}
+                  >
+                    ▶ Continue
+                  </button>
+                </Tooltip>
+                <Tooltip content="Step to next program note (F10)">
+                  <button
+                    className="ide-ribbon-btn"
+                    onClick={onStepBeat}
+                    disabled={!isPausedAtBreakpoint}
+                  >
+                    ⏭ Step
+                  </button>
+                </Tooltip>
               </div>
               <div className="ide-ribbon-group__title">Controls</div>
             </div>
             <div className="ide-ribbon-group">
               <div className="ide-ribbon-group__controls">
-                <button
-                  className="ide-ribbon-btn ide-ribbon-btn--danger"
-                  onClick={onClearBreakpoints}
-                  disabled={breakpoints.size === 0}
-                  title="Clear all breakpoints"
-                >
-                  ✕ Clear all
-                </button>
+                <Tooltip content="Clear all breakpoints">
+                  <button
+                    className="ide-ribbon-btn ide-ribbon-btn--danger"
+                    onClick={onClearBreakpoints}
+                    disabled={breakpoints.size === 0}
+                  >
+                    ✕ Clear all
+                  </button>
+                </Tooltip>
               </div>
               <div className="ide-ribbon-group__title">
                 Breakpoints ({breakpoints.size})
@@ -825,13 +858,14 @@ export function IdeToolbar({ onOpenA11y }: IdeToolbarProps) {
       {overlayTab && (
         <div className="ide-overlay">
           <div className="ide-overlay-inner">
-            <button
-              className="ide-overlay-close"
-              onClick={() => setOverlayTab(null)}
-              title="Close"
-            >
-              ×
-            </button>
+            <Tooltip content="Close">
+              <button
+                className="ide-overlay-close"
+                onClick={() => setOverlayTab(null)}
+              >
+                ×
+              </button>
+            </Tooltip>
             {overlayTab === "help" ? <HelpPanel /> : <AboutPanel />}
           </div>
         </div>

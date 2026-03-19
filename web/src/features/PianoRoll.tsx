@@ -15,6 +15,7 @@ import {
   GRID_SNAP_OPTIONS,
 } from "../lib/piano.js";
 import { Icon } from "../ui-kit/Icon.js";
+import { Tooltip } from "../ui-kit/Tooltip.js";
 
 export function PianoRoll() {
   const {
@@ -94,15 +95,12 @@ export function PianoRoll() {
         style={{ opacity: isEditingProgram ? 1 : 0.35 }}
       >
         {Object.entries(COMMAND_COLORS).map(([cmd, color]) => (
-          <span
-            key={cmd}
-            className="legend-item"
-            style={{ color }}
-            title={COMMAND_TOOLTIPS[cmd]}
-          >
-            <span className="legend-dot" style={{ background: color }} />
-            <code>{cmd}</code>
-          </span>
+          <Tooltip key={cmd} content={COMMAND_TOOLTIPS[cmd]} placement="below">
+            <span className="legend-item" style={{ color }}>
+              <span className="legend-dot" style={{ background: color }} />
+              <code>{cmd}</code>
+            </span>
+          </Tooltip>
         ))}
         <span className="legend-item" style={{ color: "var(--accent2)" }}>
           <span
@@ -178,68 +176,90 @@ export function PianoRoll() {
 
         {/* Floating editor toolbar */}
         <div className="pr-toolbar">
-          <button
-            className="pr-toolbar-btn"
-            onClick={undo}
-            disabled={!canUndo}
-            title={canUndo ? `Undo ${undoLabel}` : "Nothing to undo"}
-            aria-label={canUndo ? `Undo ${undoLabel}` : "Undo"}
+          <Tooltip
+            content={canUndo ? `Undo ${undoLabel}` : "Nothing to undo"}
+            placement="below-left"
           >
-            <div className="pr-toolbar-btn-label">
-              <Icon name="undo" />
-              Undo
-            </div>
-            <kbd className="pr-toolbar-kbd">⌘Z</kbd>
-          </button>
-          <button
-            className="pr-toolbar-btn"
-            onClick={redo}
-            disabled={!canRedo}
-            title={canRedo ? `Redo ${redoLabel}` : "Nothing to redo"}
-            aria-label={canRedo ? `Redo ${redoLabel}` : "Redo"}
+            <button
+              className="pr-toolbar-btn"
+              onClick={undo}
+              disabled={!canUndo}
+              aria-label={canUndo ? `Undo ${undoLabel}` : "Undo"}
+            >
+              <div className="pr-toolbar-btn-label">
+                <Icon name="undo" />
+                Undo
+              </div>
+              <kbd className="pr-toolbar-kbd">⌘Z</kbd>
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={canRedo ? `Redo ${redoLabel}` : "Nothing to redo"}
+            placement="below-left"
           >
-            <div className="pr-toolbar-btn-label">
-              <Icon name="redo" />
-              Redo
-            </div>
-            <kbd className="pr-toolbar-kbd">⌘⇧Z</kbd>
-          </button>
+            <button
+              className="pr-toolbar-btn"
+              onClick={redo}
+              disabled={!canRedo}
+              aria-label={canRedo ? `Redo ${redoLabel}` : "Redo"}
+            >
+              <div className="pr-toolbar-btn-label">
+                <Icon name="redo" />
+                Redo
+              </div>
+              <kbd className="pr-toolbar-kbd">⌘⇧Z</kbd>
+            </button>
+          </Tooltip>
           <div className="pr-toolbar-divider" />
-          <button
-            className={`pr-toolbar-btn${editorMode === "add" ? " pr-toolbar-btn--active" : ""}`}
-            onClick={() => setEditorMode("add")}
-            title="Add mode: click to place or preview notes"
-            aria-pressed={editorMode === "add"}
+          <Tooltip
+            content="Add mode: click to place or preview notes"
+            placement="below-left"
           >
-            <div className="pr-toolbar-btn-label">
-              <Icon name="pencil" />
-              Add
-            </div>
-            <kbd className="pr-toolbar-kbd">A</kbd>
-          </button>
-          <button
-            className={`pr-toolbar-btn${editorMode === "delete" ? " pr-toolbar-btn--active" : ""}`}
-            onClick={() => setEditorMode("delete")}
-            title="Delete mode: click to remove notes"
-            aria-pressed={editorMode === "delete"}
+            <button
+              className={`pr-toolbar-btn${editorMode === "add" ? " pr-toolbar-btn--active" : ""}`}
+              onClick={() => setEditorMode("add")}
+              aria-pressed={editorMode === "add"}
+            >
+              <div className="pr-toolbar-btn-label">
+                <Icon name="pencil" />
+                Add
+              </div>
+              <kbd className="pr-toolbar-kbd">A</kbd>
+            </button>
+          </Tooltip>
+          <Tooltip
+            content="Delete mode: click to remove notes"
+            placement="below-left"
           >
-            <div className="pr-toolbar-btn-label">
-              <Icon name="trash" />
-              Delete
-            </div>
-            <kbd className="pr-toolbar-kbd">D</kbd>
-          </button>
+            <button
+              className={`pr-toolbar-btn${editorMode === "delete" ? " pr-toolbar-btn--active" : ""}`}
+              onClick={() => setEditorMode("delete")}
+              aria-pressed={editorMode === "delete"}
+            >
+              <div className="pr-toolbar-btn-label">
+                <Icon name="trash" />
+                Delete
+              </div>
+              <kbd className="pr-toolbar-kbd">D</kbd>
+            </button>
+          </Tooltip>
           <div className="pr-toolbar-divider" />
-          <button
-            className={`pr-toolbar-btn${showLanes ? " pr-toolbar-btn--active" : ""}`}
-            onClick={() => setShowLanes((v) => !v)}
-            title={showLanes ? "Hide automation lanes" : "Show automation lanes"}
+          <Tooltip
+            content={
+              showLanes ? "Hide automation lanes" : "Show automation lanes"
+            }
+            placement="below-left"
           >
-            <div className="pr-toolbar-btn-label">
-              <Icon name="bars" />
-              Lanes
-            </div>
-          </button>
+            <button
+              className={`pr-toolbar-btn${showLanes ? " pr-toolbar-btn--active" : ""}`}
+              onClick={() => setShowLanes((v) => !v)}
+            >
+              <div className="pr-toolbar-btn-label">
+                <Icon name="bars" />
+                Lanes
+              </div>
+            </button>
+          </Tooltip>
           <div className="pr-toolbar-divider" />
           <label className="pr-toolbar-snap-label">Snap</label>
           <CustomSelect
