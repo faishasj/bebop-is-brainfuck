@@ -60,20 +60,18 @@ export function TapeVisualization({
 
   const dp = snapshot?.dp ?? 0;
 
-  // Derive viewStart: auto-follow dp or use user's manual position
+  // Derive viewStart: auto-follow dp or use user's manual position (wraps around)
   const viewStart = isFollowing
-    ? Math.max(0, Math.min(TAPE_SIZE - visibleCells, dp - Math.floor(visibleCells / 2)))
+    ? ((dp - Math.floor(visibleCells / 2)) % TAPE_SIZE + TAPE_SIZE) % TAPE_SIZE
     : userViewStart;
-  const viewEnd = Math.min(TAPE_SIZE, viewStart + visibleCells);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const navigate = useCallback(
     (newStart: number) => {
-      const clamped = Math.max(0, Math.min(TAPE_SIZE - visibleCells, newStart));
-      setUserViewStart(clamped);
+      setUserViewStart(((newStart % TAPE_SIZE) + TAPE_SIZE) % TAPE_SIZE);
       setIsFollowing(false);
     },
-    [visibleCells],
+    [],
   );
 
   // Keep refs in sync so passive/document closures always have current values
@@ -188,8 +186,8 @@ export function TapeVisualization({
         onMouseDown={handleStripMouseDown}
         style={{ cursor: isDraggingCursor ? "grabbing" : "grab" }}
       >
-        {Array.from({ length: viewEnd - viewStart }, (_, i) => {
-          const absIdx = viewStart + i;
+        {Array.from({ length: visibleCells }, (_, i) => {
+          const absIdx = (viewStart + i) % TAPE_SIZE;
           const value = getCellValue(absIdx);
           const isActive = absIdx === dp;
           const isKnown = value !== null;
