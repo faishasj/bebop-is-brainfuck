@@ -74,7 +74,7 @@ export function NoteGrid({
     tracks,
   } = useTracks();
 
-  const { isPlaying, currentBeat } = useExecution();
+  const { isPlaying, currentBeat, loopHighlightBeats } = useExecution();
 
   const instrument =
     tracks.find((t) => t.id === editingTrackIndex)?.instrument ??
@@ -1082,6 +1082,7 @@ export function NoteGrid({
             isPlaying &&
             currentBeat >= note.beatStart &&
             currentBeat < note.beatStart + note.durationBeats;
+          const isLoopHighlight = loopHighlightBeats.has(note.beatStart);
 
           return (
             <div
@@ -1110,12 +1111,18 @@ export function NoteGrid({
                 fontFamily: "monospace",
                 cursor: editorMode === "delete" ? "grab" : "move",
                 zIndex: 3,
-                filter: isActive ? "brightness(1.4)" : undefined,
+                filter: isActive
+                  ? "brightness(1.4)"
+                  : isLoopHighlight
+                    ? "brightness(1.25)"
+                    : undefined,
                 boxShadow: isActive
                   ? "0 0 10px 2px rgba(255,255,255,0.55), 0 0 0 1px rgba(255,255,255,0.8)"
-                  : isSelected
-                    ? "0 0 0 2px var(--accent)"
-                    : undefined,
+                  : isLoopHighlight
+                    ? "0 0 8px 1px rgba(22, 188, 213, 0.5), 0 0 0 1px rgba(22, 188, 213, 0.7)"
+                    : isSelected
+                      ? "0 0 0 2px var(--accent)"
+                      : undefined,
               }}
             >
               {/* Left resize handle */}

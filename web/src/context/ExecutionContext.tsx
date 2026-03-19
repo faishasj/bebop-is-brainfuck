@@ -53,6 +53,7 @@ interface ExecutionContextValue {
   transpileError: string | null;
   activeBfCharIndex: number;
   canResume: boolean;
+  loopHighlightBeats: Set<number>;
   // Breakpoints
   breakpoints: Set<number>;
   isPausedAtBreakpoint: boolean;
@@ -187,6 +188,36 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     }
     return idx;
   }, [isPlaying, isPausedAtBreakpoint, currentBeat, noteCommands]);
+
+  // ── Bracket pair map (for loop highlight) ─────────────────────────────────
+  const bracketMap = useMemo(() => {
+    const map = new Map<number, number>();
+    const stack: number[] = [];
+    for (let i = 0; i < brainfuck.length; i++) {
+      if (brainfuck[i] === "[") stack.push(i);
+      else if (brainfuck[i] === "]") {
+        const open = stack.pop()!;
+        map.set(i, open);
+        map.set(open, i);
+      }
+    }
+    return map;
+  }, [brainfuck]);
+
+  // ── Loop body highlight: active when playhead is on a `]` note ────────────
+  const loopHighlightBeats = useMemo(() => {
+    if (activeBfCharIndex < 0 || brainfuck[activeBfCharIndex] !== "]")
+      return new Set<number>();
+    const openIdx = bracketMap.get(activeBfCharIndex);
+    if (openIdx === undefined) return new Set<number>();
+    const beats = new Set<number>();
+    for (const nc of noteCommands) {
+      if (nc.charIndex >= openIdx && nc.charIndex < activeBfCharIndex) {
+        beats.add(nc.beatStart);
+      }
+    }
+    return beats;
+  }, [activeBfCharIndex, brainfuck, bracketMap, noteCommands]);
 
   const canResume =
     currentBeat > 0 &&
@@ -806,6 +837,7 @@ export function ExecutionProvider({ children }: { children: React.ReactNode }) {
     transpileError,
     activeBfCharIndex,
     canResume,
+    loopHighlightBeats,
     breakpoints,
     isPausedAtBreakpoint,
     toggleBreakpoint,
