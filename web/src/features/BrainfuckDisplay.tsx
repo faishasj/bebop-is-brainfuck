@@ -37,43 +37,37 @@ export function BrainfuckDisplay({
           </div>
         )}
       </div>
-      {code ? (
-        <pre className="code-block">
-          {code.split("").map((ch, i) => {
-            const isActive = i === activeCharIndex;
-            const isLoop =
-              !isActive &&
-              loopHighlightRange !== null &&
-              i >= loopHighlightRange[0] &&
-              i <= loopHighlightRange[1];
-            return (
-              <span
-                key={i}
-                style={
-                  isActive
+      <pre className="code-block">
+        {code.split("").map((ch, i) => {
+          const isActive = i === activeCharIndex;
+          const isLoop =
+            !isActive &&
+            loopHighlightRange !== null &&
+            i >= loopHighlightRange[0] &&
+            i <= loopHighlightRange[1];
+          return (
+            <span
+              key={i}
+              style={
+                isActive
+                  ? {
+                      background: "var(--accent2)",
+                      color: "var(--bg)",
+                      borderRadius: 2,
+                    }
+                  : isLoop
                     ? {
-                        background: "var(--accent2)",
-                        color: "var(--bg)",
+                        background: "rgba(22, 188, 213, 0.18)",
                         borderRadius: 2,
                       }
-                    : isLoop
-                      ? {
-                          background: "rgba(22, 188, 213, 0.18)",
-                          borderRadius: 2,
-                        }
-                      : undefined
-                }
-              >
-                {ch}
-              </span>
-            );
-          })}
-        </pre>
-      ) : (
-        <p className="placeholder">
-          Transpiled Brainfuck code will appear here.
-        </p>
-      )}
+                    : undefined
+              }
+            >
+              {ch}
+            </span>
+          );
+        })}
+      </pre>
     </section>
   );
 }

@@ -25,7 +25,6 @@ function AppLayout() {
     activeBfCharIndex,
     output,
     error,
-    hasRun,
     liveDisplayedOutput,
     liveTapeState,
     runMode,
@@ -112,7 +111,6 @@ function AppLayout() {
           <OutputDisplay
             output={output}
             error={error}
-            hasRun={hasRun}
             liveMode={runMode === "live"}
             liveDisplayedOutput={liveDisplayedOutput}
           />
